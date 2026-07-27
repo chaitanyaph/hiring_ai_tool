@@ -1,0 +1,32 @@
+package com.cadence.analyticsservice.constants;
+
+/**
+ * Only REAL, correctly-topic'd events verified directly from each
+ * sibling service's own KafkaTopics.java are listed here. Notably
+ * absent: any "CandidateJoined"-style event (confirmed absent
+ * platform-wide by full-source grep) and any source/channel-tagged
+ * event (no such field exists anywhere) -- see README.
+ */
+public final class KafkaTopics {
+    private KafkaTopics() {}
+
+    public static final String COMPANY_CREATED = "company.company.created";
+    public static final String JOB_PUBLISHED = "job.job.published";
+    public static final String JOB_CLOSED = "job.job.closed";
+    public static final String USER_REGISTERED = "auth.user.registered";
+    public static final String APPLICATION_CREATED = "application.application.created";
+    public static final String APPLICATION_STATUS_CHANGED = "application.status.changed";
+    public static final String RECRUITER_ASSIGNED = "application.recruiter.assigned";
+    public static final String RESUME_PARSED = "resume-parser.resume.parsed";
+    public static final String RESUME_ANALYZED = "resume-parser.resume.analyzed";
+    public static final String CANDIDATE_SHORTLISTED = "ai-interview.candidate.shortlisted";
+    public static final String INTERVIEW_EVALUATED = "ai-interview.interview.evaluated";
+    public static final String CODING_ASSESSMENT_COMPLETED = "assessment.coding.completed";
+    public static final String INTERVIEW_MANAGEMENT_INTERVIEW_COMPLETED = "interview-management.interview.completed";
+    public static final String INTERVIEW_MANAGEMENT_INTERVIEW_CANCELLED = "interview-management.interview.cancelled";
+    public static final String OFFER_GENERATED = "offer-management.offer.generated";
+    public static final String OFFER_SENT = "offer-management.offer.sent";
+    public static final String OFFER_ACCEPTED = "offer-management.offer.accepted";
+    public static final String OFFER_REJECTED = "offer-management.offer.rejected";
+    public static final String OFFER_NEGOTIATION_REQUESTED = "offer-management.offer.negotiation-requested";
+}

@@ -1,0 +1,94 @@
+services:
+  resumeparser-db:
+    image: mysql:8.0
+    container_name: cadence-resumeparser-db
+    environment:
+      MYSQL_DATABASE: resume_parser_db
+      MYSQL_USER: resumeparser_user
+      MYSQL_PASSWORD: resumeparser_pass
+      MYSQL_ROOT_PASSWORD: root_pass
+    ports:
+      - "3312:3306"
+    volumes:
+      - resumeparser_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "resumeparser_user", "-presumeparser_pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [cadence-net]
+
+  redis:
+    image: redis:7-alpine
+    container_name: cadence-resumeparser-redis
+    ports:
+      - "6385:6379"
+    networks: [cadence-net]
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: cadence-resumeparser-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks: [cadence-net]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: cadence-resumeparser-kafka
+    depends_on: [zookeeper]
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9098:9092"
+    networks: [cadence-net]
+
+  eureka-server:
+    image: steeltoeoss/eureka-server:latest
+    container_name: cadence-resumeparser-eureka
+    ports:
+      - "8767:8761"
+    networks: [cadence-net]
+
+  resume-parser-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cadence-resume-parser-service
+    depends_on:
+      resumeparser-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_USERNAME: resumeparser_user
+      DB_PASSWORD: resumeparser_pass
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_URI: http://eureka:eureka_pass@eureka-server:8761/eureka
+      # Reads resumes straight out of Resume Service's MinIO -- see README
+      # "Running alongside Resume Service" for why this points at the
+      # `minio` service name and how to make it resolvable.
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      JWT_SECRET: c2FtcGxlLXNlY3JldC1rZXktY2hhbmdlLW1lLWluLXByb2R1Y3Rpb24tZW52aXJvbm1lbnQtMzItYnl0ZXMh
+      RESUME_PARSER_PROVIDER: ${RESUME_PARSER_PROVIDER:-gemini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    ports:
+      - "8088:8088"
+    networks: [cadence-net]
+
+networks:
+  cadence-net:
+    driver: bridge
+
+volumes:
+  resumeparser_db_data:

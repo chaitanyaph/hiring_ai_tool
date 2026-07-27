@@ -1,0 +1,84 @@
+services:
+  company-db:
+    image: mysql:8.0
+    container_name: cadence-company-db
+    environment:
+      MYSQL_DATABASE: company_db
+      MYSQL_USER: company_user
+      MYSQL_PASSWORD: company_pass
+      MYSQL_ROOT_PASSWORD: root_pass
+    ports:
+      - "3307:3306"
+    volumes:
+      - company_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "company_user", "-pcompany_pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [cadence-net]
+
+  redis:
+    image: redis:7-alpine
+    container_name: cadence-company-redis
+    ports:
+      - "6380:6379"
+    networks: [cadence-net]
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: cadence-company-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks: [cadence-net]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: cadence-company-kafka
+    depends_on: [zookeeper]
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9093:9092"
+    networks: [cadence-net]
+
+  eureka-server:
+    image: steeltoeoss/eureka-server:latest
+    container_name: cadence-company-eureka
+    ports:
+      - "8762:8761"
+    networks: [cadence-net]
+
+  company-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cadence-company-service
+    depends_on:
+      company-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_USERNAME: company_user
+      DB_PASSWORD: company_pass
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_URI: http://eureka:eureka_pass@eureka-server:8761/eureka
+      INVITATION_EXPIRY_DAYS: 7
+    ports:
+      - "8083:8083"
+    networks: [cadence-net]
+
+networks:
+  cadence-net:
+    driver: bridge
+
+volumes:
+  company_db_data:

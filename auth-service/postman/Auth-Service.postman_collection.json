@@ -1,0 +1,208 @@
+{
+  "info": {
+    "name": "Cadence Auth Service",
+    "description": "Authentication, RBAC, MFA, and Session Management APIs for the Cadence AI Hiring Platform",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:8081/api/v1/auth" },
+    { "key": "accessToken", "value": "" },
+    { "key": "refreshToken", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Register",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"fullName\": \"Rahul Mehta\",\n  \"email\": \"rahul@email.com\",\n  \"password\": \"Str0ng!Pass\",\n  \"userType\": \"CANDIDATE\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"rahul@email.com\",\n  \"password\": \"Str0ng!Pass\",\n  \"rememberMe\": false\n}"
+        }
+      }
+    },
+    {
+      "name": "Verify MFA Login",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/mfa/verify-login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"mfaSessionToken\": \"<from login response>\",\n  \"code\": \"123456\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Refresh Token",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/refresh-token",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}"
+        }
+      }
+    },
+    {
+      "name": "Get Current User",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{baseUrl}}/me"
+      }
+    },
+    {
+      "name": "Logout",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "url": "{{baseUrl}}/logout",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\",\n  \"allDevices\": false\n}"
+        }
+      }
+    },
+    {
+      "name": "Forgot Password",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/forgot-password",
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"rahul@email.com\"\n}" }
+      }
+    },
+    {
+      "name": "Reset Password",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/reset-password",
+        "body": { "mode": "raw", "raw": "{\n  \"token\": \"<from email>\",\n  \"newPassword\": \"NewStr0ng!Pass\"\n}" }
+      }
+    },
+    {
+      "name": "Change Password",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "url": "{{baseUrl}}/change-password",
+        "body": { "mode": "raw", "raw": "{\n  \"currentPassword\": \"Str0ng!Pass\",\n  \"newPassword\": \"NewStr0ng!Pass\"\n}" }
+      }
+    },
+    {
+      "name": "Verify Email",
+      "request": { "method": "GET", "url": "{{baseUrl}}/verify-email?token=<from email>" }
+    },
+    {
+      "name": "Resend Verification",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{baseUrl}}/resend-verification",
+        "body": { "mode": "raw", "raw": "{\n  \"email\": \"rahul@email.com\"\n}" }
+      }
+    },
+    {
+      "name": "MFA Setup",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{baseUrl}}/mfa/setup"
+      }
+    },
+    {
+      "name": "MFA Confirm",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "url": "{{baseUrl}}/mfa/confirm",
+        "body": { "mode": "raw", "raw": "{\n  \"code\": \"123456\"\n}" }
+      }
+    },
+    {
+      "name": "MFA Disable",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{baseUrl}}/mfa/disable?currentPassword=Str0ng!Pass"
+      }
+    },
+    {
+      "name": "Get Sessions",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{baseUrl}}/sessions"
+      }
+    },
+    {
+      "name": "Revoke Session",
+      "request": {
+        "method": "DELETE",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{baseUrl}}/sessions/<sessionId>"
+      }
+    },
+    {
+      "name": "Revoke All Sessions",
+      "request": {
+        "method": "DELETE",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{baseUrl}}/sessions"
+      }
+    },
+    {
+      "name": "List Roles",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{baseUrl}}/roles"
+      }
+    },
+    {
+      "name": "Assign Roles",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Content-Type", "value": "application/json" },
+          { "key": "Authorization", "value": "Bearer {{accessToken}}" }
+        ],
+        "url": "{{baseUrl}}/roles/<userId>/assign",
+        "body": { "mode": "raw", "raw": "{\n  \"roleNames\": [\"ROLE_RECRUITER\"]\n}" }
+      }
+    },
+    {
+      "name": "My Audit Logs",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{accessToken}}" }],
+        "url": "{{baseUrl}}/audit-logs/me?page=0&size=20"
+      }
+    }
+  ]
+}

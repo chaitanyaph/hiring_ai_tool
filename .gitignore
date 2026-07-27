@@ -1,0 +1,42 @@
+# ---- Secrets -- NEVER commit these ----
+.env
+.env.*
+!.env.example
+
+# ---- Maven (all 15 Spring Boot services) ----
+target/
+*.class
+*.jar
+!.mvn/wrapper/maven-wrapper.jar
+
+# ---- Angular (cadence_angular) ----
+cadence_angular/node_modules/
+cadence_angular/dist/
+cadence_angular/.angular/
+cadence_angular/npm-debug.log*
+
+# ---- IDE ----
+.idea/
+*.iml
+.vscode/
+.settings/
+.classpath
+.project
+.metadata/
+
+# ---- Leftover local artifacts, not part of the app ----
+*.zip
+cadence_full_flow*.html
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+
+# ---- Logs ----
+*.log
+logs/
+
+# ---- Docker volumes data (if ever bind-mounted locally) ----
+mysql-data/
+redis-data/
+minio-data/

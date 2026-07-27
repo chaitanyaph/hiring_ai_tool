@@ -1,0 +1,84 @@
+services:
+  candidate-db:
+    image: mysql:8.0
+    container_name: cadence-candidate-db
+    environment:
+      MYSQL_DATABASE: candidate_db
+      MYSQL_USER: candidate_user
+      MYSQL_PASSWORD: candidate_pass
+      MYSQL_ROOT_PASSWORD: root_pass
+    ports:
+      - "3309:3306"
+    volumes:
+      - candidate_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "candidate_user", "-pcandidate_pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [cadence-net]
+
+  redis:
+    image: redis:7-alpine
+    container_name: cadence-candidate-redis
+    ports:
+      - "6382:6379"
+    networks: [cadence-net]
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: cadence-candidate-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks: [cadence-net]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: cadence-candidate-kafka
+    depends_on: [zookeeper]
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9095:9092"
+    networks: [cadence-net]
+
+  eureka-server:
+    image: steeltoeoss/eureka-server:latest
+    container_name: cadence-candidate-eureka
+    ports:
+      - "8764:8761"
+    networks: [cadence-net]
+
+  candidate-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cadence-candidate-service
+    depends_on:
+      candidate-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_USERNAME: candidate_user
+      DB_PASSWORD: candidate_pass
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_URI: http://eureka:eureka_pass@eureka-server:8761/eureka
+      JWT_SECRET: c2FtcGxlLXNlY3JldC1rZXktY2hhbmdlLW1lLWluLXByb2R1Y3Rpb24tZW52aXJvbm1lbnQtMzItYnl0ZXMh
+    ports:
+      - "8085:8085"
+    networks: [cadence-net]
+
+networks:
+  cadence-net:
+    driver: bridge
+
+volumes:
+  candidate_db_data:

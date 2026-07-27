@@ -1,0 +1,109 @@
+services:
+  resume-db:
+    image: mysql:8.0
+    container_name: cadence-resume-db
+    environment:
+      MYSQL_DATABASE: resume_db
+      MYSQL_USER: resume_user
+      MYSQL_PASSWORD: resume_pass
+      MYSQL_ROOT_PASSWORD: root_pass
+    ports:
+      - "3311:3306"
+    volumes:
+      - resume_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "resume_user", "-presume_pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [cadence-net]
+
+  minio:
+    image: minio/minio:latest
+    container_name: cadence-resume-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - resume_minio_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [cadence-net]
+
+  redis:
+    image: redis:7-alpine
+    container_name: cadence-resume-redis
+    ports:
+      - "6384:6379"
+    networks: [cadence-net]
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: cadence-resume-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks: [cadence-net]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: cadence-resume-kafka
+    depends_on: [zookeeper]
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9097:9092"
+    networks: [cadence-net]
+
+  eureka-server:
+    image: steeltoeoss/eureka-server:latest
+    container_name: cadence-resume-eureka
+    ports:
+      - "8766:8761"
+    networks: [cadence-net]
+
+  resume-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cadence-resume-service
+    depends_on:
+      resume-db:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_USERNAME: resume_user
+      DB_PASSWORD: resume_pass
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_URI: http://eureka:eureka_pass@eureka-server:8761/eureka
+      MINIO_ENDPOINT: http://minio:9000
+      MINIO_ACCESS_KEY: minioadmin
+      MINIO_SECRET_KEY: minioadmin
+      JWT_SECRET: c2FtcGxlLXNlY3JldC1rZXktY2hhbmdlLW1lLWluLXByb2R1Y3Rpb24tZW52aXJvbm1lbnQtMzItYnl0ZXMh
+    ports:
+      - "8087:8087"
+    networks: [cadence-net]
+
+networks:
+  cadence-net:
+    driver: bridge
+
+volumes:
+  resume_db_data:
+  resume_minio_data:

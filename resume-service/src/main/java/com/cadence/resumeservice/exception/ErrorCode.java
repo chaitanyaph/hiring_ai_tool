@@ -1,0 +1,17 @@
+package com.cadence.resumeservice.exception;
+
+public enum ErrorCode {
+    RESUME_NOT_FOUND,
+    CANDIDATE_NOT_FOUND,
+    CANDIDATE_NOT_ACTIVE,
+    RESUME_LIMIT_EXCEEDED,
+    INVALID_FILE_TYPE,
+    FILE_TOO_LARGE,
+    EMPTY_FILE,
+    DUPLICATE_RESUME,
+    RESUME_IN_USE,
+    STORAGE_ERROR,
+    VALIDATION_FAILED,
+    ACCESS_DENIED,
+    INTERNAL_ERROR
+}

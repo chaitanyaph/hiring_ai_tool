@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <!--
+         Parent stays at 3.3.4, same as every sibling service: spring-data-redis's
+         entire transitive graph (spring-data-keyvalue, spring-tx, spring-oxm, etc.)
+         is only fully cached at the versions Boot 3.3.4 manages, since that is the
+         parent version all 13 sibling services already built spring-data-redis
+         under. Only WebFlux-specific artifacts are pinned below to versions that
+         are cached but not the 3.3.4-managed ones; see each pin's comment.
+    -->
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.4</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.cadence</groupId>
+    <artifactId>api-gateway-service</artifactId>
+    <version>1.0.0</version>
+    <name>api-gateway-service</name>
+    <description>Cadence AI Hiring Platform - API Gateway (Spring Cloud Gateway, reactive)</description>
+
+    <properties>
+        <java.version>21</java.version>
+        <spring-cloud.version>2023.0.3</spring-cloud.version>
+        <jjwt.version>0.12.6</jjwt.version>
+        <!--
+             spring-cloud-dependencies:2023.0.3 manages spring-cloud-starter-gateway
+             at 4.1.5, which is not cached in this offline .m2 repository: only
+             4.1.6 and 4.2.0 are. Pinned to the closest cached release.
+        -->
+        <spring-cloud-gateway.version>4.1.6</spring-cloud-gateway.version>
+        <!--
+             spring-boot-starter-webflux/spring-boot-starter-reactor-netty are not
+             cached at Boot 3.3.4's managed version, only at 3.3.5. Both starters'
+             raw Spring Framework modules (spring-webflux, spring-tx, etc.) are then
+             pulled via this spring-framework.version override, Boot's own
+             supported customization point for pinning Spring Framework independently
+             of the Boot parent version: set to 6.1.14, the release Boot 3.3.5
+             itself pairs with and the one cached offline.
+        -->
+        <spring-boot-webflux.version>3.3.5</spring-boot-webflux.version>
+        <spring-framework.version>6.1.14</spring-framework.version>
+        <webjars-swagger-ui.version>5.17.14</webjars-swagger-ui.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!--
+                 reactor-netty-http's own managed Netty version is not cached offline
+                 (netty-codec-http etc. at 4.1.113.Final are absent). Importing this
+                 BOM at a release that is fully cached forces every io.netty:* artifact
+                 to one consistent, available version in a single override instead of
+                 pinning each Netty module individually as it surfaces.
+            -->
+            <dependency>
+                <groupId>io.netty</groupId>
+                <artifactId>netty-bom</artifactId>
+                <version>4.1.114.Final</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!--
+                 The BOM import above still manages spring-cloud-gateway-server (the
+                 starter's own transitive dependency) at 4.1.5, overriding the
+                 4.1.6 declared on the starter itself below. Pinned explicitly here
+                 so both artifacts resolve to the one release actually cached offline.
+            -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-gateway-server</artifactId>
+                <version>${spring-cloud-gateway.version}</version>
+            </dependency>
+            <!--
+                 spring-oxm and reactor-netty-http are both transitive-only in this
+                 project (pulled in by spring-data-redis and the webflux/reactor-netty
+                 starters respectively). Neither is cached offline at the version the
+                 spring-framework.version property / starter versions above would
+                 otherwise pull, so each is pinned independently to the one release
+                 that is actually cached.
+            -->
+            <dependency>
+                <groupId>org.springframework</groupId>
+                <artifactId>spring-oxm</artifactId>
+                <version>6.1.13</version>
+            </dependency>
+            <dependency>
+                <groupId>io.projectreactor.netty</groupId>
+                <artifactId>reactor-netty-http</artifactId>
+                <version>1.1.23</version>
+            </dependency>
+            <dependency>
+                <groupId>io.projectreactor.netty</groupId>
+                <artifactId>reactor-netty-core</artifactId>
+                <version>1.1.23</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <!-- Reactive web: Spring Cloud Gateway requires WebFlux/Netty, never
+             coexists with spring-boot-starter-web in the same app. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+            <version>${spring-boot-webflux.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-reactor-netty</artifactId>
+            <version>${spring-boot-webflux.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-gateway</artifactId>
+            <version>${spring-cloud-gateway.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Service Discovery / Config / Load Balancing -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-loadbalancer</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-config</artifactId>
+        </dependency>
+
+        <!-- Circuit breaker / retry / timeout for every downstream route (version
+             managed by the spring-cloud-dependencies BOM already imported above). -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-circuitbreaker-reactor-resilience4j</artifactId>
+        </dependency>
+
+        <!--
+             Reactive Redis for the rate limiter: spring-boot-starter-data-redis-reactive
+             is not cached offline (only the blocking spring-boot-starter-data-redis is).
+             That starter is just a thin aggregator POM; declaring its two real
+             dependencies directly triggers the exact same ReactiveRedisAutoConfiguration,
+             since Spring Boot activates it purely on classpath presence, not on which
+             starter pulled the jars in. Left unversioned so the 3.3.4 parent manages
+             it: the same version every sibling service's spring-boot-starter-data-redis
+             already resolves to.
+        -->
+        <dependency>
+            <groupId>org.springframework.data</groupId>
+            <artifactId>spring-data-redis</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.lettuce</groupId>
+            <artifactId>lettuce-core</artifactId>
+        </dependency>
+
+        <!-- JWT (same library/version as every downstream service) -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>${jjwt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!--
+             Swagger aggregation: springdoc-openapi-starter-webflux-ui is not cached
+             offline (only the webmvc variant is, which cannot coexist with a WebFlux
+             app). Serving the raw swagger-ui webjar's static assets directly, fed a
+             hand-written "urls" config listing all 13 downstream OpenAPI documents
+             (proxied through the gateway), is the standard framework-agnostic
+             aggregation pattern anyway, not a workaround: it is the normal approach.
+        -->
+        <dependency>
+            <groupId>org.webjars</groupId>
+            <artifactId>swagger-ui</artifactId>
+            <version>${webjars-swagger-ui.version}</version>
+        </dependency>
+
+        <!-- Utilities -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <source>21</source>
+                    <target>21</target>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>1.18.34</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>

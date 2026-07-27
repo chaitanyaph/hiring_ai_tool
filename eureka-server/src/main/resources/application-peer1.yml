@@ -1,0 +1,13 @@
+# HA profile: this node's own identity is eureka-peer1; it registers as a
+# client of eureka-peer2 so the two nodes replicate their registries to each
+# other -- standard Eureka peer-awareness, activated via SPRING_PROFILES_ACTIVE=peer1.
+eureka:
+  instance:
+    hostname: eureka-peer1
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      # Container-internal port, always 8761 for both peers -- only the
+      # docker-compose host-side mapping for peer2 differs (8762:8761).
+      defaultZone: http://${spring.security.user.name}:${spring.security.user.password}@eureka-peer2:8761/eureka/

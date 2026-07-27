@@ -1,0 +1,30 @@
+services:
+  eureka-peer1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cadence-eureka-peer1
+    environment:
+      SPRING_PROFILES_ACTIVE: peer1
+      EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka_pass}
+    ports:
+      - "8761:8761"
+    networks: [cadence-net]
+
+  eureka-peer2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cadence-eureka-peer2
+    environment:
+      SPRING_PROFILES_ACTIVE: peer2
+      EUREKA_USERNAME: ${EUREKA_USERNAME:-eureka}
+      EUREKA_PASSWORD: ${EUREKA_PASSWORD:-eureka_pass}
+    ports:
+      - "8762:8761"
+    networks: [cadence-net]
+
+networks:
+  cadence-net:
+    driver: bridge

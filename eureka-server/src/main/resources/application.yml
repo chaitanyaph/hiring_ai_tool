@@ -1,0 +1,48 @@
+server:
+  port: 8761
+
+spring:
+  application:
+    name: eureka-server
+  security:
+    user:
+      name: ${EUREKA_USERNAME:eureka}
+      password: ${EUREKA_PASSWORD:eureka_pass}
+
+# Default/single-node profile: this instance does not register with itself and
+# does not need to fetch a registry it already holds -- standard standalone
+# Eureka config. The peer1/peer2 profiles (application-peer1.yml,
+# application-peer2.yml) override these three keys for HA clustering.
+eureka:
+  instance:
+    hostname: localhost
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://${spring.security.user.name}:${spring.security.user.password}@${eureka.instance.hostname}:${server.port}/eureka/
+  server:
+    # Self-preservation protects against mass eviction during a network
+    # partition (a renewal-rate drop across *all* clients, not one dead
+    # instance) -- kept on, this is the correct default for a real
+    # deployment. eviction-interval is shortened from Eureka's 60s default
+    # only for faster local feedback; safe to leave as-is in production.
+    enable-self-preservation: true
+    eviction-interval-timer-in-ms: 60000
+    renewal-percent-threshold: 0.85
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.netflix.eureka: INFO
+    com.netflix.discovery: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"

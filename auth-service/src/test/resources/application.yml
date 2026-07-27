@@ -1,0 +1,27 @@
+spring:
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      enabled: false
+  autoconfigure:
+    exclude:
+      - org.springframework.cloud.netflix.eureka.EurekaClientAutoConfiguration
+eureka:
+  client:
+    enabled: false
+app:
+  jwt:
+    secret: dGVzdC1zZWNyZXQta2V5LWZvci11bml0LXRlc3RzLW9ubHktMzJieXRlcyE=
+    access-token-expiration-ms: 900000
+    refresh-token-expiration-ms: 604800000
+    remember-me-refresh-token-expiration-ms: 2592000000
+    issuer: cadence-auth-service-test
+  security:
+    max-failed-login-attempts: 5
+    account-lock-duration-minutes: 30
+    password-reset-token-expiry-minutes: 30
+    email-verification-token-expiry-hours: 24
+    mfa-issuer: Cadence-Test
+  cors:
+    allowed-origins: http://localhost:3000

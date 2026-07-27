@@ -1,0 +1,4 @@
+{$CADDY_DOMAIN} {
+	reverse_proxy api-gateway-service:8080
+	encode gzip
+}

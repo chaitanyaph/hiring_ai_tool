@@ -1,0 +1,84 @@
+services:
+  offermanagement-db:
+    image: mysql:8.0
+    container_name: cadence-offermanagement-db
+    environment:
+      MYSQL_DATABASE: offer_management_db
+      MYSQL_USER: offermanagement_user
+      MYSQL_PASSWORD: offermanagement_pass
+      MYSQL_ROOT_PASSWORD: root_pass
+    ports:
+      - "3317:3306"
+    volumes:
+      - offermanagement_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "offermanagement_user", "-pofformanagement_pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [cadence-net]
+
+  redis:
+    image: redis:7-alpine
+    container_name: cadence-offermanagement-redis
+    ports:
+      - "6390:6379"
+    networks: [cadence-net]
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: cadence-offermanagement-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks: [cadence-net]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: cadence-offermanagement-kafka
+    depends_on: [zookeeper]
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9103:9092"
+    networks: [cadence-net]
+
+  eureka-server:
+    image: steeltoeoss/eureka-server:latest
+    container_name: cadence-offermanagement-eureka
+    ports:
+      - "8772:8761"
+    networks: [cadence-net]
+
+  offer-management-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cadence-offer-management-service
+    depends_on:
+      offermanagement-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_USERNAME: offermanagement_user
+      DB_PASSWORD: offermanagement_pass
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_URI: http://eureka:eureka_pass@eureka-server:8761/eureka
+      JWT_SECRET: c2FtcGxlLXNlY3JldC1rZXktY2hhbmdlLW1lLWluLXByb2R1Y3Rpb24tZW52aXJvbm1lbnQtMzItYnl0ZXMh
+    ports:
+      - "8093:8093"
+    networks: [cadence-net]
+
+networks:
+  cadence-net:
+    driver: bridge
+
+volumes:
+  offermanagement_db_data:

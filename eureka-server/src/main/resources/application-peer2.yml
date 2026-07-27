@@ -1,0 +1,10 @@
+# HA profile: mirror of application-peer1.yml -- this node's own identity is
+# eureka-peer2, registering as a client of eureka-peer1.
+eureka:
+  instance:
+    hostname: eureka-peer2
+  client:
+    register-with-eureka: true
+    fetch-registry: true
+    service-url:
+      defaultZone: http://${spring.security.user.name}:${spring.security.user.password}@eureka-peer1:8761/eureka/

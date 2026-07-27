@@ -1,0 +1,49 @@
+package com.cadence.resumeservice.config;
+
+import com.cadence.resumeservice.constants.SecurityConstants;
+import com.cadence.resumeservice.security.JwtAuthenticationFilter;
+import com.cadence.resumeservice.security.RestAccessDeniedHandler;
+import com.cadence.resumeservice.security.RestAuthenticationEntryPoint;
+import lombok.RequiredArgsConstructor;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+
+/**
+ * Stateless: Resume Service never issues or stores sessions/tokens, it
+ * only validates the JWT Auth Service already issued. Role enforcement
+ * is method-level (@PreAuthorize), since access varies sharply by
+ * endpoint -- candidate self-service, recruiter preview/download-only,
+ * and the two true machine-to-machine endpoints (permitAll below).
+ */
+@Configuration
+@EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
+@RequiredArgsConstructor
+public class SecurityConfig {
+
+    private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
+    private final RestAccessDeniedHandler restAccessDeniedHandler;
+
+    @Bean
+    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+        http
+            .csrf(csrf -> csrf.disable())
+            .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                    .requestMatchers(SecurityConstants.PUBLIC_ENDPOINTS).permitAll()
+                    .anyRequest().authenticated())
+            .exceptionHandling(ex -> ex
+                    .authenticationEntryPoint(restAuthenticationEntryPoint)
+                    .accessDeniedHandler(restAccessDeniedHandler))
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
+    }
+}

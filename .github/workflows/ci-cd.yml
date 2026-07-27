@@ -1,0 +1,99 @@
+name: CI/CD
+
+# Build + test every backend service and the Angular app on every push/PR.
+# Deploy only runs on a push to main, and only after every build-and-test job
+# passes. Deploy re-builds Docker images directly on the VM via `docker compose
+# up -d --build` (the same command DEPLOYMENT.md's manual steps use) rather than
+# pushing to a separate container registry first -- docker-compose.yml already
+# builds each service `build: ./service-name` from source, so building a second
+# time in CI just to push images nobody references would burn free CI minutes
+# for no benefit and require a registry-based rewrite of docker-compose.yml that
+# isn't otherwise needed.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test-backend:
+    name: Build & test ${{ matrix.service }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - eureka-server
+          - api-gateway-service
+          - auth-service
+          - company-service
+          - job-service
+          - candidate-service
+          - resume-service
+          - application-service
+          - resume-parser-service
+          - ai-interview-service
+          - coding-assessment-service
+          - interview-management-service
+          - notification-service
+          - offer-management-service
+          - analytics-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: ${{ matrix.service }}/pom.xml
+
+      - name: mvn verify
+        working-directory: ${{ matrix.service }}
+        run: mvn -B -ntp clean verify
+
+      - name: Validate Dockerfile builds
+        working-directory: ${{ matrix.service }}
+        run: docker build -t cadence-${{ matrix.service }}:ci .
+
+  build-and-test-frontend:
+    name: Build Angular (production)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: cadence_angular/package-lock.json
+
+      - name: npm ci
+        working-directory: cadence_angular
+        run: npm ci
+
+      - name: Production build
+        working-directory: cadence_angular
+        run: npm run build -- --configuration production
+
+  deploy:
+    name: Deploy to VM
+    needs: [build-and-test-backend, build-and-test-frontend]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: SSH deploy (git pull + docker compose up -d --build)
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VM_HOST }}
+          username: ${{ secrets.VM_USER }}
+          key: ${{ secrets.VM_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/cadence
+            git pull origin main
+            docker compose up -d --build
+            docker image prune -f

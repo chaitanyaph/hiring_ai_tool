@@ -1,0 +1,7 @@
+{
+  "buildCommand": "npm run build -- --configuration production",
+  "outputDirectory": "dist/cadence-angular/browser",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}

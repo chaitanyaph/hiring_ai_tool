@@ -1,0 +1,88 @@
+services:
+  aiinterview-db:
+    image: mysql:8.0
+    container_name: cadence-aiinterview-db
+    environment:
+      MYSQL_DATABASE: ai_interview_db
+      MYSQL_USER: aiinterview_user
+      MYSQL_PASSWORD: aiinterview_pass
+      MYSQL_ROOT_PASSWORD: root_pass
+    ports:
+      - "3313:3306"
+    volumes:
+      - aiinterview_db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "aiinterview_user", "-paiinterview_pass"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [cadence-net]
+
+  redis:
+    image: redis:7-alpine
+    container_name: cadence-aiinterview-redis
+    ports:
+      - "6386:6379"
+    networks: [cadence-net]
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    container_name: cadence-aiinterview-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+    networks: [cadence-net]
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    container_name: cadence-aiinterview-kafka
+    depends_on: [zookeeper]
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9099:9092"
+    networks: [cadence-net]
+
+  eureka-server:
+    image: steeltoeoss/eureka-server:latest
+    container_name: cadence-aiinterview-eureka
+    ports:
+      - "8768:8761"
+    networks: [cadence-net]
+
+  ai-interview-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cadence-ai-interview-service
+    depends_on:
+      aiinterview-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      DB_USERNAME: aiinterview_user
+      DB_PASSWORD: aiinterview_pass
+      REDIS_HOST: redis
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      EUREKA_URI: http://eureka:eureka_pass@eureka-server:8761/eureka
+      JWT_SECRET: c2FtcGxlLXNlY3JldC1rZXktY2hhbmdlLW1lLWluLXByb2R1Y3Rpb24tZW52aXJvbm1lbnQtMzItYnl0ZXMh
+      AI_INTERVIEW_PROVIDER: ${AI_INTERVIEW_PROVIDER:-gemini}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GROQ_API_KEY: ${GROQ_API_KEY:-}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+    ports:
+      - "8089:8089"
+    networks: [cadence-net]
+
+networks:
+  cadence-net:
+    driver: bridge
+
+volumes:
+  aiinterview_db_data:
