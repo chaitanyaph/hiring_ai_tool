@@ -22,7 +22,7 @@ You need *some* domain name pointing at the VM's public IP. If you don't own one
    - Image: **Ubuntu 22.04** (or newer LTS).
    - Boot volume: default is fine (up to 200GB is free).
    - Note: Always-Free ARM capacity is sometimes unavailable in a given region right after signup ("out of host capacity" error) — if this happens, try a different Availability Domain, or try again later; it's a known, common Oracle Free Tier friction point, not something wrong with your account.
-3. In the VM's **Virtual Cloud Network → Security List**, add ingress rules for ports **22** (SSH, restrict to your IP if possible), **80**, and **443** from `0.0.0.0/0`. Everything else (8080-8094, 3306, 6379, 9092, 9000/9001) should stay **closed to the internet** — those are only reached over the VM's internal Docker network, never directly.
+3. In the VM's **Virtual Cloud Network → Security List**, add ingress rules for ports **22** (SSH, restrict to your IP if possible), **80**, and **443** from `0.0.0.0/0`. Everything else (8080-8094, 3306, 9092, 9000/9001) should stay **closed to the internet** — those are only reached over the VM's internal Docker network, never directly. (Redis is no longer self-hosted on the VM at all — see step 3 below.)
 4. SSH in, then install Docker:
    ```bash
    curl -fsSL https://get.docker.com | sudo sh
@@ -38,7 +38,13 @@ cd cadence
 # (or scp the E:\HIring_AI_Tool directory up if it's not in git yet)
 ```
 
-## 3. Configure secrets
+## 3. Create the free Upstash Redis database
+
+1. Sign up at [console.upstash.com](https://console.upstash.com/redis) (free, no card required for the free tier).
+2. **Create Database** → type **Regional** (not Global — Global is a paid feature) → pick a region close to your VM → TLS is on by default, leave it on.
+3. Open the new database, go to its **Connect** tab, and note down the **Endpoint** (host), **Port**, and **Password** — you'll need all three in the next step.
+
+## 4. Configure secrets
 
 ```bash
 cp .env.example .env
@@ -48,13 +54,14 @@ nano .env
 Fill in at minimum:
 - `MYSQL_ROOT_PASSWORD` — pick a real password.
 - `JWT_SECRET` — generate one: `openssl rand -base64 32 | base64 -w0`. This must be a real secret in production (the checked-in default is a placeholder every service falls back to, fine for local dev, **not** fine once this is reachable from the internet).
-- `CORS_ALLOWED_ORIGINS` — your Vercel URL, once you know it (step 5).
+- `CORS_ALLOWED_ORIGINS` — your Vercel URL, once you know it (step 6).
 - `CADDY_DOMAIN` — the domain/subdomain from the HTTPS section above.
 - `MINIO_ACCESS_KEY` / `MINIO_SECRET_KEY` — pick real values.
-- `GEMINI_API_KEY` or `GROQ_API_KEY` — at least one, for resume-parser-service / ai-interview-service / coding-assessment-service's AI features to work (both have generous free tiers; Gemini's is usually the easier one to get a key for quickly).
+- `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` — from the Upstash "Connect" tab in step 3. Leave `REDIS_SSL_ENABLED=true`.
+- `GEMINI_API_KEY` (and optionally `GEMINI_MODEL`, defaults to `gemini-2.0-flash`) or `GROQ_API_KEY` — at least one, for resume-parser-service / ai-interview-service / coding-assessment-service's AI features to work (both have generous free tiers; Gemini's is usually the easier one to get a key for quickly).
 - SMTP credentials if you want notification-service to actually send email (e.g. a Gmail account with an [App Password](https://myaccount.google.com/apppasswords)). Leave blank to skip — the rest of the platform still works, emails just won't send.
 
-## 4. Start everything
+## 5. Start everything
 
 ```bash
 docker compose up -d --build
@@ -86,7 +93,7 @@ curl -s https://<your-domain>/company/api/v1/companies/some-id
 # JWT perimeter check is actually active on protected routes
 ```
 
-## 5. Deploy the frontend to Vercel
+## 6. Deploy the frontend to Vercel
 
 1. Edit `cadence_angular/src/environments/environment.prod.ts` — set `apiBaseUrl` to `https://<your-domain>` (the same domain Caddy is serving).
 2. Push that change, then in Vercel: **New Project → import the repo → root directory `cadence_angular`**. Vercel auto-detects `vercel.json` (already set up in this repo) for the build command and output directory.
@@ -96,15 +103,25 @@ curl -s https://<your-domain>/company/api/v1/companies/some-id
    ```
    (only the Gateway needs restarting — it's the only service that reads that variable.)
 
-## 6. Judge0 (coding-assessment-service's code execution) — not included
+## 7. Judge0 (coding-assessment-service's code execution) — not included
 
 Running code execution needs [Judge0](https://github.com/judge0/judge0) self-hosted, which needs privileged container access (cgroups/isolate) and its own Postgres+Redis — on a 2 OCPU/12GB free VM already running everything else, this is genuinely tight. Two options:
 - Skip it for now — every other feature works fine; only "Run"/"Submit" inside a coding assessment will fail.
 - Use Judge0's free hosted instance on RapidAPI (has a free quota) instead of self-hosting: set `JUDGE0_BASE_URL` in `.env` to the RapidAPI endpoint and add the required RapidAPI key to coding-assessment-service's config (not currently wired as an env var — a small code change would be needed to pass the RapidAPI key header through).
 
-## 7. What to expect, honestly
+## 8. Automatic deploys via GitHub Actions (optional but recommended)
+
+`.github/workflows/ci-cd.yml` builds and tests all 15 services + the Angular app on every push/PR, and on a push to `main` it SSHes into the VM and re-deploys automatically (`git pull && docker compose up -d --build`). To enable the deploy step, add these three repo secrets (GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**):
+
+- `VM_HOST` — the VM's public IP or your `CADDY_DOMAIN`.
+- `VM_USER` — the SSH user you log in as (e.g. `ubuntu`).
+- `VM_SSH_KEY` — the **private** half of an SSH key pair whose public half is already in the VM's `~/.ssh/authorized_keys`. Generate a dedicated deploy key rather than reusing your personal one: `ssh-keygen -t ed25519 -f deploy_key -N ""`, add `deploy_key.pub` to the VM, paste the contents of `deploy_key` (the private key) as the `VM_SSH_KEY` secret.
+
+Without these three secrets the build-and-test jobs still run (so broken code is still caught on every PR), the deploy job just won't have anything to connect with and will fail — which is safe, it only means deploys stay manual (step 5's `docker compose up -d --build` over SSH) until you add them.
+
+## 9. What to expect, honestly
 
 - This is a **single VM, no redundancy**. If it reboots or runs out of memory, everything on it goes down together until it recovers. That's the tradeoff of "free."
 - The cross-service Kafka gaps documented in `CADENCE_PLATFORM_DOCUMENTATION.md` §6 are still there — this deployment makes the *infrastructure* production-shaped, it doesn't fix the application-level gaps (resumeId-null bug, no advance-stage endpoint, etc.).
-- Memory is tuned tight (see `docker-compose.yml`'s `x-jvm-small` block). If a service crashes with an OOM, that's the signal to either bump its `mem_limit`/`-Xmx` a bit (there's roughly 3-4GB of headroom left in the 12GB budget) or turn off a service you're not actively using.
-- The three missing frontend screens (candidate AI-interview screen, candidate My Interviews, Offer Management UI) are still missing after this deployment — hosting doesn't build them; see the main documentation's §8 for that.
+- Memory is tuned tight (see `docker-compose.yml`'s `x-jvm-small` block). If a service crashes with an OOM, that's the signal to either bump its `mem_limit`/`-Xmx` a bit (there's roughly 3-4GB of headroom left in the 12GB budget now that Redis moved off the VM) or turn off a service you're not actively using.
+- Upstash's free tier has a monthly command-count cap. This app's Redis usage (short caches, session locks) is light, so it comfortably fits — but if the app grows a lot busier, that cap is the first thing to check if Redis calls start failing.
