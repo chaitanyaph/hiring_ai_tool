@@ -187,6 +187,10 @@ services:
     environment:
       <<: [*jvm-small, *service-common]
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/auth_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      MAIL_HOST: ${SMTP_HOST}
+      MAIL_PORT: ${SMTP_PORT}
+      MAIL_USERNAME: ${SMTP_USERNAME}
+      MAIL_PASSWORD: ${SMTP_PASSWORD}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
     ports: ["8081:8081"]
