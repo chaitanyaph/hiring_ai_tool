@@ -1,4 +1,21 @@
 {$CADDY_DOMAIN} {
-	reverse_proxy api-gateway-service:8080
 	encode gzip
+
+	# Angular frontend and the backend API share this one domain -- known API
+	# path prefixes (matching RouteConfig.java's 13 routes) go to the Gateway;
+	# everything else is the Angular app. Same-origin means no CORS is needed
+	# between them at all.
+	@api path /auth/* /company/* /jobs/* /candidate/* /resume/* /application/* /resume-parser/* /ai-interview/* /coding-assessment/* /interview-management/* /notification/* /offer-management/* /analytics/*
+	handle @api {
+		reverse_proxy api-gateway-service:8080
+	}
+
+	# Angular SPA: serve the built static files, falling back to index.html
+	# for any path Angular's own client-side router owns (e.g. /candidate/dashboard
+	# is NOT an API path -- deep-linking/refreshing on an Angular route must not 404).
+	handle {
+		root * /srv/frontend
+		try_files {path} /index.html
+		file_server
+	}
 }

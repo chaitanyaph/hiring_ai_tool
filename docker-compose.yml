@@ -65,6 +65,7 @@ services:
       CADDY_DOMAIN: ${CADDY_DOMAIN}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./frontend-dist:/srv/frontend:ro
       - caddy-data:/data
       - caddy-config:/config
     ports:

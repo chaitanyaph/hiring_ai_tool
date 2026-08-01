@@ -1,4 +1,4 @@
 export const environment = {
   production: true,
-  apiBaseUrl: 'https://api.cadence.example.com',
+  apiBaseUrl: 'https://hirepilot.duckdns.org',
 };
