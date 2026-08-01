@@ -49,7 +49,7 @@ public class TeamInvitation implements Serializable {
     @Column(nullable = false, length = 40)
     private TeamRole role;
 
-    @Column(name = "invite_token", nullable = false, unique = true, length = 36)
+    @Column(name = "invite_token", nullable = false, unique = true, columnDefinition = "CHAR(36)")
     private String inviteToken;
 
     @Column(name = "expiry_date", nullable = false)
