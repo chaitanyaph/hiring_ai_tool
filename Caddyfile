@@ -1,11 +1,15 @@
 {$CADDY_DOMAIN} {
 	encode gzip
 
-	# Angular frontend and the backend API share this one domain -- known API
-	# path prefixes (matching RouteConfig.java's 13 routes) go to the Gateway;
-	# everything else is the Angular app. Same-origin means no CORS is needed
-	# between them at all.
-	@api path /auth/* /company/* /jobs/* /candidate/* /resume/* /application/* /resume-parser/* /ai-interview/* /coding-assessment/* /interview-management/* /notification/* /offer-management/* /analytics/*
+	# Angular frontend and the backend API share this one domain. Every real
+	# API call is <service-prefix>/api/v1/... (confirmed in every Angular
+	# service's BASE_URL constant), so matching on "/api/*" after the prefix
+	# -- not just the bare prefix -- is deliberate: candidate-service's route
+	# is /candidate/** and Angular's own candidate UI also lives at
+	# /candidate/** (e.g. /candidate/dashboard), so a bare /candidate/* match
+	# would swallow Angular's own routes into the Gateway and 401 them
+	# instead of serving the SPA. Matching /candidate/api/* only is precise.
+	@api path /auth/api/* /company/api/* /jobs/api/* /candidate/api/* /resume/api/* /application/api/* /resume-parser/api/* /ai-interview/api/* /coding-assessment/api/* /interview-management/api/* /notification/api/* /offer-management/api/* /analytics/api/*
 	handle @api {
 		reverse_proxy api-gateway-service:8080
 	}
