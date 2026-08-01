@@ -140,6 +140,13 @@ management:
   endpoint:
     health:
       show-details: always
+  health:
+    # SMTP is intentionally optional (see .env.example) -- a blank/misconfigured
+    # mail server should not fail this service's liveness/readiness probe when
+    # everything else (auth, JWT, MFA, ...) is working fine. Only real email
+    # sending is affected, not the rest of the service.
+    mail:
+      enabled: false
 
 logging:
   level:

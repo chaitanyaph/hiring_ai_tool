@@ -37,7 +37,7 @@ public class EmailAttachment {
     private long sizeBytes;
 
     @Lob
-    @Column(name = "content", nullable = false)
+    @Column(name = "content", nullable = false, columnDefinition = "LONGBLOB")
     private byte[] content;
 
     @Column(name = "created_at", nullable = false)

@@ -33,7 +33,7 @@ public class JobTemplate implements Serializable {
     private String templateName;
 
     @Lob
-    @Column(name = "template_data_json", nullable = false)
+    @Column(name = "template_data_json", nullable = false, columnDefinition = "LONGTEXT")
     private String templateDataJson;
 
     @Column(name = "created_by")

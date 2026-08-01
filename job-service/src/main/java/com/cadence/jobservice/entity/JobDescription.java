@@ -24,7 +24,7 @@ public class JobDescription implements Serializable {
     private UUID jobId;
 
     @Lob
-    @Column(name = "description_html")
+    @Column(name = "description_html", columnDefinition = "LONGTEXT")
     private String descriptionHtml;
 
     @Column(name = "created_at", nullable = false, updatable = false)

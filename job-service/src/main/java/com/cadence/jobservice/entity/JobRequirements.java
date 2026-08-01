@@ -34,9 +34,11 @@ public class JobRequirements implements Serializable {
     private String education;
 
     @Lob
+    @Column(columnDefinition = "LONGTEXT")
     private String certifications;
 
     @Lob
+    @Column(columnDefinition = "LONGTEXT")
     private String languages;
 
     @Column(name = "min_salary", precision = 12, scale = 2)
@@ -53,6 +55,7 @@ public class JobRequirements implements Serializable {
     private Integer noticePeriodDays;
 
     @Lob
+    @Column(columnDefinition = "LONGTEXT")
     private String responsibilities;
 
     @Column(name = "created_at", nullable = false, updatable = false)

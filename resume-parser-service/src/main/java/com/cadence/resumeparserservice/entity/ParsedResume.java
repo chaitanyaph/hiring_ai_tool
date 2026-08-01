@@ -39,7 +39,7 @@ public class ParsedResume extends BaseAuditEntity {
     @Column(name = "candidate_id", nullable = false)
     private UUID candidateId;
 
-    @Column(name = "checksum", nullable = false, length = 64)
+    @Column(name = "checksum", nullable = false, columnDefinition = "CHAR(64)")
     private String checksum;
 
     @Enumerated(EnumType.STRING)

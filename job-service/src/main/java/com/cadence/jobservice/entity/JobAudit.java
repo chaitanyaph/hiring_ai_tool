@@ -33,6 +33,7 @@ public class JobAudit implements Serializable {
     private LocalDateTime performedAt;
 
     @Lob
+    @Column(columnDefinition = "LONGTEXT")
     private String details;
 
     @PrePersist

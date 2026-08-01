@@ -53,7 +53,7 @@ public class Resume extends BaseAuditEntity {
     @Column(name = "object_name", nullable = false, length = 500)
     private String objectName;
 
-    @Column(name = "checksum", nullable = false, length = 64)
+    @Column(name = "checksum", nullable = false, columnDefinition = "CHAR(64)")
     private String checksum;
 
     @Column(name = "file_size", nullable = false)

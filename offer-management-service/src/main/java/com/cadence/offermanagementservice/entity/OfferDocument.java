@@ -41,7 +41,7 @@ public class OfferDocument {
     private long sizeBytes;
 
     @Lob
-    @Column(name = "content", nullable = false)
+    @Column(name = "content", nullable = false, columnDefinition = "LONGBLOB")
     private byte[] content;
 
     @Column(name = "generated_at", nullable = false)

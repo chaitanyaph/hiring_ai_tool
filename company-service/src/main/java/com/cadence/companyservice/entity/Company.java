@@ -44,6 +44,7 @@ public class Company extends BaseAuditEntity implements Serializable {
     private String headquarters;
 
     @Lob
+    @Column(columnDefinition = "LONGTEXT")
     private String description;
 
     @Column(name = "company_logo", length = 500)
