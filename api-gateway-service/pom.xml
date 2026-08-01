@@ -29,26 +29,25 @@
         <java.version>21</java.version>
         <spring-cloud.version>2023.0.3</spring-cloud.version>
         <jjwt.version>0.12.6</jjwt.version>
-        <!--
-             spring-cloud-dependencies:2023.0.3 manages spring-cloud-starter-gateway
-             at 4.1.5, which is not cached in this offline .m2 repository: only
-             4.1.6 and 4.2.0 are. Pinned to the closest cached release.
-        -->
-        <spring-cloud-gateway.version>4.1.6</spring-cloud-gateway.version>
-        <!--
-             spring-boot-starter-webflux/spring-boot-starter-reactor-netty are not
-             cached at Boot 3.3.4's managed version, only at 3.3.5. Both starters'
-             raw Spring Framework modules (spring-webflux, spring-tx, etc.) are then
-             pulled via this spring-framework.version override, Boot's own
-             supported customization point for pinning Spring Framework independently
-             of the Boot parent version: set to 6.1.14, the release Boot 3.3.5
-             itself pairs with and the one cached offline.
-        -->
-        <spring-boot-webflux.version>3.3.5</spring-boot-webflux.version>
-        <spring-framework.version>6.1.14</spring-framework.version>
         <webjars-swagger-ui.version>5.17.14</webjars-swagger-ui.version>
     </properties>
 
+    <!--
+         The offline-cache-driven version overrides that used to live here
+         (spring-cloud-gateway pinned to 4.1.6, spring-framework pinned to
+         6.1.14, spring-boot-webflux pinned to 3.3.5, plus matching pins for
+         spring-oxm/reactor-netty-http/reactor-netty-core) were removed:
+         this environment has real internet access, so there's no longer a
+         reason to override what spring-cloud-dependencies:2023.0.3 +
+         spring-boot-starter-parent:3.3.4 already resolve consistently on
+         their own. The overrides were also the root cause of a runtime
+         NoSuchMethodError (HttpHeaders.headerSet(), a Spring Framework 6.2+
+         method) once the resilience4j circuit-breaker starter was added:
+         forcing spring-cloud-gateway to 4.1.6 while pinning Framework to
+         6.1.14 mixed a Gateway release built against a newer Framework API
+         with an older one, and letting the BOM manage every version
+         natively resolves the whole graph consistently again.
+    -->
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -57,54 +56,6 @@
                 <version>${spring-cloud.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
-            </dependency>
-            <!--
-                 reactor-netty-http's own managed Netty version is not cached offline
-                 (netty-codec-http etc. at 4.1.113.Final are absent). Importing this
-                 BOM at a release that is fully cached forces every io.netty:* artifact
-                 to one consistent, available version in a single override instead of
-                 pinning each Netty module individually as it surfaces.
-            -->
-            <dependency>
-                <groupId>io.netty</groupId>
-                <artifactId>netty-bom</artifactId>
-                <version>4.1.114.Final</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-            <!--
-                 The BOM import above still manages spring-cloud-gateway-server (the
-                 starter's own transitive dependency) at 4.1.5, overriding the
-                 4.1.6 declared on the starter itself below. Pinned explicitly here
-                 so both artifacts resolve to the one release actually cached offline.
-            -->
-            <dependency>
-                <groupId>org.springframework.cloud</groupId>
-                <artifactId>spring-cloud-gateway-server</artifactId>
-                <version>${spring-cloud-gateway.version}</version>
-            </dependency>
-            <!--
-                 spring-oxm and reactor-netty-http are both transitive-only in this
-                 project (pulled in by spring-data-redis and the webflux/reactor-netty
-                 starters respectively). Neither is cached offline at the version the
-                 spring-framework.version property / starter versions above would
-                 otherwise pull, so each is pinned independently to the one release
-                 that is actually cached.
-            -->
-            <dependency>
-                <groupId>org.springframework</groupId>
-                <artifactId>spring-oxm</artifactId>
-                <version>6.1.13</version>
-            </dependency>
-            <dependency>
-                <groupId>io.projectreactor.netty</groupId>
-                <artifactId>reactor-netty-http</artifactId>
-                <version>1.1.23</version>
-            </dependency>
-            <dependency>
-                <groupId>io.projectreactor.netty</groupId>
-                <artifactId>reactor-netty-core</artifactId>
-                <version>1.1.23</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -115,17 +66,14 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-webflux</artifactId>
-            <version>${spring-boot-webflux.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-reactor-netty</artifactId>
-            <version>${spring-boot-webflux.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.cloud</groupId>
             <artifactId>spring-cloud-starter-gateway</artifactId>
-            <version>${spring-cloud-gateway.version}</version>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
