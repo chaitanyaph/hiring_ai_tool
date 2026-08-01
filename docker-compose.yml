@@ -1,16 +1,27 @@
-# Sized for a single free-tier VM (e.g. Oracle Cloud "Always Free" ARM Ampere,
-# currently 2 OCPU / 12GB RAM -- see DEPLOYMENT.md). Every JVM's heap is capped
-# hard and SerialGC is forced since none of these services see enough traffic on
-# a free tier to benefit from a concurrent collector, and SerialGC's footprint is
-# far smaller. Redpanda replaces Kafka+Zookeeper (Kafka-API-compatible, a small
-# fraction of the RAM). Redis is NOT self-hosted here -- every service points at a
-# free managed Upstash Redis database instead (REDIS_HOST/PASSWORD in .env), which
-# frees ~128MB of VM RAM and removes one more container that could lose its data on
-# a VM restart. Judge0 (code execution sandbox for coding-assessment-service)
+# Originally sized for a tight free-tier VM (e.g. Oracle Cloud "Always Free" ARM
+# Ampere, 2 OCPU / 12GB RAM -- see DEPLOYMENT.md). If you're running on a larger
+# box (this deployment: a 4 vCPU / 16GB GCP VM), these limits have real headroom
+# to grow -- see the mem_limit comment below for why they were bumped up from the
+# original tighter values. SerialGC is still forced since none of these services
+# see enough traffic to benefit from a concurrent collector, and its footprint is
+# smaller regardless of box size. Redpanda replaces Kafka+Zookeeper (Kafka-API-
+# compatible, a small fraction of the RAM). Redis is NOT self-hosted here -- every
+# service points at a free managed Upstash Redis database instead (REDIS_HOST/
+# PASSWORD in .env). Judge0 (code execution sandbox for coding-assessment-service)
 # is intentionally NOT included here -- see DEPLOYMENT.md's "Judge0" section.
 
+# -XX:MaxMetaspaceSize=96m was too tight for a Spring Boot 3 app with Hibernate +
+# Jackson + Spring Security + the Eureka client all loaded -- every service that
+# reached full startup was crashing with "OutOfMemoryError: Metaspace" a few
+# seconds after registering with Eureka. 224m gives real headroom without being
+# wasteful; Xmx bumped alongside it since 256m of heap was also tight under real
+# request load, not just at startup. Every per-service mem_limit below was raised
+# to 768m to match -- Docker's hard cap has to sit comfortably above Xmx+Metaspace
+# (320m+224m=544m) plus thread stacks/JIT code cache/direct buffers/native
+# overhead, or Docker's own OOM-killer replaces the JVM's Metaspace crash with a
+# silent container kill instead.
 x-jvm-small: &jvm-small
-  JAVA_OPTS: "-Xms96m -Xmx256m -XX:MaxMetaspaceSize=96m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss256k"
+  JAVA_OPTS: "-Xms96m -Xmx320m -XX:MaxMetaspaceSize=224m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss256k"
 
 x-service-common: &service-common
   DB_USERNAME: root
@@ -126,7 +137,7 @@ services:
     build: ./eureka-server
     container_name: cadence-eureka
     restart: unless-stopped
-    mem_limit: 320m
+    mem_limit: 768m
     environment:
       <<: *jvm-small
       EUREKA_USERNAME: ${EUREKA_USERNAME}
@@ -147,7 +158,7 @@ services:
     build: ./api-gateway-service
     container_name: cadence-gateway
     restart: unless-stopped
-    mem_limit: 384m
+    mem_limit: 768m
     depends_on:
       eureka-server:
         condition: service_healthy
@@ -169,7 +180,7 @@ services:
   auth-service:
     build: ./auth-service
     restart: unless-stopped
-    mem_limit: 384m
+    mem_limit: 768m
     depends_on:
       mysql: { condition: service_healthy }
       eureka-server: { condition: service_healthy }
@@ -184,7 +195,7 @@ services:
   company-service:
     build: ./company-service
     restart: unless-stopped
-    mem_limit: 320m
+    mem_limit: 768m
     depends_on:
       mysql: { condition: service_healthy }
       eureka-server: { condition: service_healthy }
@@ -197,7 +208,7 @@ services:
   job-service:
     build: ./job-service
     restart: unless-stopped
-    mem_limit: 320m
+    mem_limit: 768m
     depends_on:
       mysql: { condition: service_healthy }
       eureka-server: { condition: service_healthy }
@@ -210,7 +221,7 @@ services:
   candidate-service:
     build: ./candidate-service
     restart: unless-stopped
-    mem_limit: 320m
+    mem_limit: 768m
     depends_on:
       mysql: { condition: service_healthy }
       eureka-server: { condition: service_healthy }
@@ -223,7 +234,7 @@ services:
   resume-service:
     build: ./resume-service
     restart: unless-stopped
-    mem_limit: 320m
+    mem_limit: 768m
     depends_on:
       mysql: { condition: service_healthy }
       eureka-server: { condition: service_healthy }
@@ -240,7 +251,7 @@ services:
   application-service:
     build: ./application-service
     restart: unless-stopped
-    mem_limit: 320m
+    mem_limit: 768m
     depends_on:
       mysql: { condition: service_healthy }
       eureka-server: { condition: service_healthy }
@@ -253,7 +264,7 @@ services:
   resume-parser-service:
     build: ./resume-parser-service
     restart: unless-stopped
-    mem_limit: 384m
+    mem_limit: 768m
     depends_on:
       mysql: { condition: service_healthy }
       eureka-server: { condition: service_healthy }
@@ -262,6 +273,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/resume_parser_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
       RESUME_PARSER_PROVIDER: ${RESUME_PARSER_PROVIDER}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL}
       GROQ_API_KEY: ${GROQ_API_KEY}
     ports: ["8088:8088"]
     networks: [cadence-net]
@@ -269,7 +281,7 @@ services:
   ai-interview-service:
     build: ./ai-interview-service
     restart: unless-stopped
-    mem_limit: 384m
+    mem_limit: 768m
     depends_on:
       mysql: { condition: service_healthy }
       eureka-server: { condition: service_healthy }
@@ -278,6 +290,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/ai_interview_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
       AI_INTERVIEW_PROVIDER: ${AI_INTERVIEW_PROVIDER}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL}
       GROQ_API_KEY: ${GROQ_API_KEY}
     ports: ["8089:8089"]
     networks: [cadence-net]
@@ -285,15 +298,16 @@ services:
   coding-assessment-service:
     build: ./coding-assessment-service
     restart: unless-stopped
-    mem_limit: 384m
+    mem_limit: 768m
     depends_on:
       mysql: { condition: service_healthy }
       eureka-server: { condition: service_healthy }
     environment:
       <<: [*jvm-small, *service-common]
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/coding_assessment_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
-      CODING_REVIEW_PROVIDER: ${CODING_REVIEW_PROVIDER}
+      CODING_ASSESSMENT_AI_PROVIDER: ${CODING_ASSESSMENT_AI_PROVIDER}
       GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL}
       GROQ_API_KEY: ${GROQ_API_KEY}
       JUDGE0_BASE_URL: ${JUDGE0_BASE_URL}
     ports: ["8090:8090"]
@@ -302,7 +316,7 @@ services:
   interview-management-service:
     build: ./interview-management-service
     restart: unless-stopped
-    mem_limit: 320m
+    mem_limit: 768m
     depends_on:
       mysql: { condition: service_healthy }
       eureka-server: { condition: service_healthy }
@@ -315,7 +329,7 @@ services:
   notification-service:
     build: ./notification-service
     restart: unless-stopped
-    mem_limit: 320m
+    mem_limit: 768m
     depends_on:
       mysql: { condition: service_healthy }
       eureka-server: { condition: service_healthy }
@@ -332,7 +346,7 @@ services:
   offer-management-service:
     build: ./offer-management-service
     restart: unless-stopped
-    mem_limit: 320m
+    mem_limit: 768m
     depends_on:
       mysql: { condition: service_healthy }
       eureka-server: { condition: service_healthy }
@@ -345,7 +359,7 @@ services:
   analytics-service:
     build: ./analytics-service
     restart: unless-stopped
-    mem_limit: 320m
+    mem_limit: 768m
     depends_on:
       mysql: { condition: service_healthy }
       eureka-server: { condition: service_healthy }
