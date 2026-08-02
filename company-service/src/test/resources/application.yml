@@ -4,6 +4,8 @@ spring:
       enabled: false
     discovery:
       enabled: false
+  kafka:
+    bootstrap-servers: localhost:9092
   autoconfigure:
     exclude:
       - org.springframework.cloud.netflix.eureka.EurekaClientAutoConfiguration

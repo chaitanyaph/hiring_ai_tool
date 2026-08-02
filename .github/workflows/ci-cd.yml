@@ -72,9 +72,9 @@ jobs:
           cache: npm
           cache-dependency-path: cadence_angular/package-lock.json
 
-      - name: npm ci
+      - name: npm install
         working-directory: cadence_angular
-        run: npm ci
+        run: npm install
 
       - name: Production build
         working-directory: cadence_angular
@@ -95,9 +95,9 @@ jobs:
           cache: npm
           cache-dependency-path: cadence_angular/package-lock.json
 
-      - name: npm ci
+      - name: npm install
         working-directory: cadence_angular
-        run: npm ci
+        run: npm install
 
       - name: Production build
         working-directory: cadence_angular
