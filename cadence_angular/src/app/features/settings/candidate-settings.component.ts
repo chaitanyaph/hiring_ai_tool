@@ -95,13 +95,6 @@ import { PreferenceCategory } from '../../core/models/notification.model';
                 </div>
                 <div class="switch" [class.on]="hideEmployer()" (click)="hideEmployer.set(!hideEmployer())"></div>
               </div>
-              <div class="toggle-row">
-                <div>
-                  <div class="t-name">Hide from Acme Corp</div>
-                  <div class="t-sub">Block a specific company from viewing your profile</div>
-                </div>
-                <div class="switch" [class.on]="blockAcme()" (click)="blockAcme.set(!blockAcme())"></div>
-              </div>
             </div>
           </div>
 
@@ -189,7 +182,6 @@ export class CandidateSettingsComponent implements OnInit {
   // Reactive state switches matching prototype
   recruiterVisible = signal<boolean>(true);
   hideEmployer = signal<boolean>(false);
-  blockAcme = signal<boolean>(false);
 
   notifAppStatus = signal<boolean>(true);
   notifReminders = signal<boolean>(true);

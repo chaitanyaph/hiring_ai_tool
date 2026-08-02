@@ -1,5 +1,5 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
-import { UserModel, UserRole, Job, Candidate, Activity, ChatMessage } from '../models/models';
+import { UserModel, Job, Candidate, ChatMessage } from '../models/models';
 import {
   CompanyResponse,
   CreateTeamInvitationRequest,
@@ -153,7 +153,6 @@ export class AppStateService {
 
   jobs = signal<Job[]>([]);
   candidates = signal<Candidate[]>([]);
-  activities = signal<Activity[]>([]);
 
   recruiterChatHistory = signal<ChatMessage[]>([]);
   candidateChatHistory = signal<ChatMessage[]>([]);
@@ -392,25 +391,6 @@ export class AppStateService {
         this.toastMessage.set(null);
       }
     }, 2400);
-  }
-
-  // Authentication Actions
-  loginAsRecruiter(email?: string) {
-    this.currentUser.set({
-      name: 'Ananya Rao',
-      email: email && email.includes('@') ? email : 'ananya@acmecorp.com',
-      role: UserRole.team
-    });
-    this.showToast('Welcome back, Ananya');
-  }
-
-  loginAsCandidate(email?: string) {
-    this.currentUser.set({
-      name: 'Rahul Mehta',
-      email: email && email.includes('@') ? email : 'rahul.mehta@email.com',
-      role: UserRole.candidate
-    });
-    this.showToast('Welcome back, Rahul');
   }
 
   logout() {
@@ -1224,105 +1204,6 @@ export class AppStateService {
 
   // Helper mock data restorer
   resetData() {
-    this.jobs.set([
-      {
-        id: 'job-1',
-        title: 'Backend Engineer',
-        department: 'Engineering',
-        location: 'Pune (Hybrid)',
-        workType: 'Hybrid',
-        empType: 'Full-time',
-        experience: '3-6 years',
-        salary: '₹18-28 LPA',
-        status: 'published',
-        description: 'We are looking for a Senior Backend Engineer to join our core team. You will design, build, and maintain high-performance Java APIs and systems.',
-        skills: ['Java', 'Spring Boot', 'Kafka', 'Redis'],
-        openings: 3,
-        applicants: 214,
-        posted: '12 days ago'
-      },
-      {
-        id: 'job-2',
-        title: 'Senior DevOps Engineer',
-        department: 'Infrastructure',
-        location: 'Remote',
-        workType: 'Remote',
-        empType: 'Full-time',
-        experience: '5-8 years',
-        salary: '₹22-32 LPA',
-        status: 'published',
-        description: 'Responsible for CI/CD pipelines, cloud infrastructure automations, and container orchestrations using AWS and Kubernetes.',
-        skills: ['AWS', 'Kubernetes', 'Terraform', 'Docker'],
-        openings: 1,
-        applicants: 88,
-        posted: '8 days ago'
-      },
-      {
-        id: 'job-3',
-        title: 'Frontend Engineer (React)',
-        department: 'Engineering',
-        location: 'Pune (Hybrid)',
-        workType: 'Hybrid',
-        empType: 'Full-time',
-        experience: '2-4 years',
-        salary: '₹12-18 LPA',
-        status: 'published',
-        description: 'Rebuild user interfaces using Angular/React. Focus on smooth styling, fast load times, and pixel-perfect layouts.',
-        skills: ['Angular', 'TypeScript', 'CSS', 'Sass'],
-        openings: 2,
-        applicants: 156,
-        posted: '5 days ago'
-      },
-      {
-        id: 'job-4',
-        title: 'QA Automation Engineer',
-        department: 'Engineering',
-        location: 'Remote',
-        workType: 'Remote',
-        empType: 'Full-time',
-        experience: '3-5 years',
-        salary: '₹10-15 LPA',
-        status: 'draft',
-        description: 'Ensure quality and performance of web applications. Write automated integration tests and regression tests.',
-        skills: ['Selenium', 'Java', 'JUnit', 'CI/CD'],
-        openings: 2,
-        applicants: 47,
-        posted: '—'
-      },
-      {
-        id: 'job-5',
-        title: 'HR Business Partner',
-        department: 'People',
-        location: 'Pune (On-site)',
-        workType: 'On-site',
-        empType: 'Full-time',
-        experience: '4-7 years',
-        salary: '₹8-14 LPA',
-        status: 'published',
-        description: 'Manage employee relations, hiring strategy, and talent retention across departments.',
-        skills: ['HR Policy', 'Recruitment', 'Conflict Resolution'],
-        openings: 1,
-        applicants: 12,
-        posted: '20 days ago'
-      },
-      {
-        id: 'job-6',
-        title: 'Product Designer',
-        department: 'Design',
-        location: 'Remote',
-        workType: 'Remote',
-        empType: 'Contract',
-        experience: '3-6 years',
-        salary: '₹12-18 LPA',
-        status: 'archived',
-        description: 'Create intuitive wireframes, mockups, and high-fidelity interactive user interface designs.',
-        skills: ['Figma', 'UI/UX', 'Wireframing'],
-        openings: 1,
-        applicants: 0,
-        posted: 'Closed 2 days ago'
-      }
-    ]);
-
     this.candidates.set([
       {
         id: 'cand-1',
@@ -1408,13 +1289,6 @@ export class AppStateService {
         expectedSalary: '₹18 LPA',
         recruiterNote: 'Solid backend foundations. Notice period matches requirement.'
       }
-    ]);
-
-    this.activities.set([
-      { id: 'act-1', text: 'Arjun Verma completed Backend Engineer coding challenge.', timeAgo: '10m ago', dotColor: 'teal' },
-      { id: 'act-2', text: 'Vikram Shah scheduled Technical round with Rohan Mehta.', timeAgo: '1h ago', dotColor: 'indigo' },
-      { id: 'act-3', text: 'New resume uploaded for Frontend Engineer opening.', timeAgo: '2h ago', dotColor: 'gold' },
-      { id: 'act-4', text: 'Priya Kulkarni advanced to Interview Pending stage.', timeAgo: 'Yesterday', dotColor: 'teal' }
     ]);
 
     this.recruiterChatHistory.set([

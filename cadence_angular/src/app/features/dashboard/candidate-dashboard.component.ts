@@ -127,64 +127,20 @@ import { AppStateService } from '../../core/services/app-state.service';
             <a class="card-link" (click)="goToJobs()">Browse all</a>
           </div>
           <div class="list-card">
-            <div class="rec-item">
-              <div class="rec-top">
-                <span class="who">Senior Backend Engineer</span>
-                <span class="match-badge">91% match</span>
-              </div>
-              <div class="rec-skills">
-                <span class="skill-pill">Java</span>
-                <span class="skill-pill">Kafka</span>
-                <span class="skill-pill">AWS</span>
-              </div>
-              <div class="rec-actions">
-                <button class="view" (click)="goToJobDetail('job-1')">View job</button>
-                <button class="shortlist" (click)="state.showToast('Job saved to your list')">Save</button>
-              </div>
-            </div>
-            <div class="rec-item">
-              <div class="rec-top">
-                <span class="who">Platform Engineer</span>
-                <span class="match-badge">84% match</span>
-              </div>
-              <div class="rec-skills">
-                <span class="skill-pill">Spring Boot</span>
-                <span class="skill-pill">Docker</span>
-              </div>
-              <div class="rec-actions">
-                <button class="view" (click)="goToJobDetail('job-2')">View job</button>
-                <button class="shortlist" (click)="state.showToast('Job saved to your list')">Save</button>
-              </div>
-            </div>
+            <p style="font-size:12.5px; color:var(--ink-soft); padding:8px 0;">No suggestions yet. <a class="card-link" (click)="goToJobs()">Browse all open roles</a> to get started.</p>
           </div>
         </div>
 
-        <!-- Upcoming interviews: left static/mock -- DashboardResponse only exposes
-             upcomingInterviewsCount (bound above in the KPI row), not the list itself;
-             a real list needs interview-management-service (Module 10). -->
+        <!-- DashboardResponse only exposes upcomingInterviewsCount (bound above in the
+             KPI row), not the list itself -- a real list needs a candidate-facing endpoint
+             on interview-management-service that doesn't exist yet, so this shows an
+             honest empty state rather than fabricated interview details. -->
         <div class="card">
           <div class="card-head">
             <h2>Upcoming interviews</h2>
           </div>
           <div class="list-card">
-            <div class="interview-item">
-              <div class="avatar">HR</div>
-              <div class="meta">
-                <div class="who">HR round · Backend Engineer</div>
-                <div class="role">Acme Corp</div>
-                <span class="tag hr">Video call</span>
-              </div>
-              <div class="when">Tomorrow<br>11:00 AM</div>
-            </div>
-            <div class="interview-item">
-              <div class="avatar">AI</div>
-              <div class="meta">
-                <div class="who">AI Interview · Frontend Engineer</div>
-                <div class="role">Nimbus Labs</div>
-                <span class="tag ai">Due in 3 days</span>
-              </div>
-              <button class="btn-primary-sm" style="padding:6px 12px; font-size:11px; flex-shrink:0;" (click)="startAiInterview()">Start</button>
-            </div>
+            <p style="font-size:12.5px; color:var(--ink-soft); padding:8px 0;">No upcoming interviews yet. <button type="button" style="background:none;border:none;color:var(--indigo);font-weight:600;cursor:pointer;padding:0;font-family:inherit;font-size:inherit;" (click)="router.navigate(['/candidate/interviews'])">View My Interviews</button> once you've applied to a role.</p>
           </div>
         </div>
       </div>

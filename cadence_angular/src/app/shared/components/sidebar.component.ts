@@ -12,9 +12,9 @@ import { AuthService } from '../../core/services/auth.service';
     <div class="sidebar">
       <!-- Workspace Switcher -->
       <div class="workspace-switch">
-        <div class="mark">{{ isCandidate ? 'C' : 'A' }}</div>
+        <div class="mark">{{ isCandidate ? 'C' : (state.company()?.companyName?.charAt(0)?.toUpperCase() || 'C') }}</div>
         <div>
-          <div class="ws-name">{{ isCandidate ? 'Cadence' : 'Acme Corp' }}</div>
+          <div class="ws-name">{{ isCandidate ? 'Cadence' : (state.company()?.companyName || 'Your workspace') }}</div>
           <div class="ws-sub">{{ isCandidate ? 'Candidate Portal' : 'Company Admin' }}</div>
         </div>
         <svg viewBox="0 0 24 24" style="margin-left:auto;width:14px;height:14px;stroke:rgba(250,249,244,0.6);fill:none;stroke-width:2;">
@@ -373,7 +373,7 @@ export class SidebarComponent {
   }
 
   get userName(): string {
-    return this.state.currentUser()?.name ?? (this.isCandidate ? 'Rahul Mehta' : 'Ananya Rao');
+    return this.state.currentUser()?.name ?? '';
   }
 
   get userInitials(): string {

@@ -13,7 +13,7 @@ import { AppStateService } from '../../core/services/app-state.service';
       <div class="page-head">
         <div>
           <h1>Jobs</h1>
-          <p>18 open positions across 4 departments</p>
+          <p>{{ allCount() }} job{{ allCount() === 1 ? '' : 's' }} across {{ state.departments().length }} department{{ state.departments().length === 1 ? '' : 's' }}</p>
         </div>
         <div class="page-head-actions">
           <button class="btn-ghost" (click)="state.showToast('Opening templates…')">Templates</button>
@@ -66,10 +66,7 @@ import { AppStateService } from '../../core/services/app-state.service';
           <!-- Department filter -->
           <select class="filter-select" (change)="selectedDept.set($any($event.target).value)">
             <option value="All departments">All departments</option>
-            <option value="Engineering">Engineering</option>
-            <option value="Infrastructure">Infrastructure</option>
-            <option value="People">People</option>
-            <option value="Design">Design</option>
+            <option *ngFor="let d of state.departments()" [value]="d.departmentName">{{ d.departmentName }}</option>
           </select>
         </div>
 
@@ -166,8 +163,6 @@ export class JobsListComponent {
   searchQuery  = signal<string>('');
   activeTab    = signal<string>('All');
   selectedDept = signal<string>('All departments');
-
-  depts      = ['All departments', 'Engineering', 'Infrastructure', 'Design', 'People'];
 
   constructor(public state: AppStateService) {}
 

@@ -13,8 +13,8 @@ import { Candidate } from '../../core/models/models';
       <!-- Page Heading -->
       <div class="page-head">
         <div>
-          <h1>Good morning, Ananya</h1>
-          <p>Here's how hiring is trending across Acme Corp today.</p>
+          <h1>Good morning{{ state.currentUser()?.name ? ', ' + state.currentUser()?.name!.split(' ')[0] : '' }}</h1>
+          <p>Here's how hiring is trending across {{ state.company()?.companyName || 'your workspace' }} today.</p>
         </div>
       </div>
 
