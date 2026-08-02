@@ -43,6 +43,23 @@ export class AuthService {
     );
   }
 
+  /** Redeems the one-time code from the /oauth2/callback redirect for the actual session. */
+  exchangeOAuthCode(code: string): Observable<ApiResponse<AuthResponse>> {
+    return this.http.get<ApiResponse<AuthResponse>>(`${BASE_URL}/oauth2/exchange`, { params: { code } }).pipe(
+      tap((res) => this.persistIfComplete(res.data))
+    );
+  }
+
+  /**
+   * Full-page navigation (not an XHR) -- Google's consent screen can only redirect the whole
+   * browser. Deliberately NOT built from BASE_URL: Spring Security's OAuth2 authorization-redirect
+   * filter listens at the servlet root ("/oauth2/authorization/google"), not under auth-service's
+   * own "/api/v1/auth" controller prefix, so only the Gateway's "/auth" route-prefix applies here.
+   */
+  startGoogleLogin(): void {
+    window.location.href = `${environment.apiBaseUrl}/auth/oauth2/authorization/google`;
+  }
+
   /** Rotation: backend issues a brand new access+refresh pair on every call, the old refresh token is invalidated. */
   refreshToken(): Observable<ApiResponse<TokenResponse>> {
     const refreshToken = this.tokenStorage.getRefreshToken();

@@ -1,52 +1,42 @@
-import { Component, signal, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router, RouterLink } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AppStateService } from '../../core/services/app-state.service';
-import { AppButtonComponent } from '../../shared/components/app-button.component';
 import { AuthService } from '../../core/services/auth.service';
 
 @Component({
-  selector: 'app-forgot-password',
+  selector: 'app-verify-email',
   standalone: true,
-  imports: [CommonModule, RouterLink, AppButtonComponent],
+  imports: [CommonModule, RouterLink],
   template: `
     <div class="split-viewport">
-      <!-- Left Panel: Brand Details -->
       <div class="brand-panel">
         <div class="brand-header">
           <div class="logo">C</div>
           <h2>Cadence</h2>
         </div>
         <div class="brand-content">
-          <h1>Security.</h1>
-          <p>Request a secure password override link. We will send you instructions shortly.</p>
+          <h1>Almost there.</h1>
+          <p>Confirming your email address so you can start using your workspace.</p>
         </div>
       </div>
 
-      <!-- Right Panel: Password Form -->
       <div class="form-panel">
         <div class="form-container">
-          <div class="header-sec">
-            <h3>Forgot your password?</h3>
-            <p>Enter your email and we'll send you a link to reset it.</p>
-          </div>
-
-          <form (submit)="onSubmit($event)">
-            <!-- Email -->
-            <div class="input-field">
-              <label>Work or personal email</label>
-              <input type="email" placeholder="you@company.com" required #emailInput>
+          <ng-container [ngSwitch]="status()">
+            <div *ngSwitchCase="'verifying'" class="header-sec">
+              <h3>Verifying your email…</h3>
+              <p>This will just take a moment.</p>
             </div>
-
-            <!-- Action -->
-            <app-button 
-              label="Send reset link" 
-              type="submit" 
-              styleClass="primary" 
-              [fullWidth]="true"
-              [height]="42"
-            ></app-button>
-          </form>
+            <div *ngSwitchCase="'success'" class="header-sec">
+              <h3>Email verified</h3>
+              <p>Your account is ready. You can now sign in.</p>
+            </div>
+            <div *ngSwitchCase="'error'" class="header-sec">
+              <h3>Verification failed</h3>
+              <p>{{ errorMessage() }}</p>
+            </div>
+          </ng-container>
 
           <div class="back-link">
             <a routerLink="/login">← Back to login</a>
@@ -164,35 +154,6 @@ import { AuthService } from '../../core/services/auth.service';
       }
     }
 
-    .input-field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-bottom: 14px;
-
-      label {
-        font-size: 12.5px;
-        font-weight: 600;
-        color: var(--ink);
-      }
-
-      input {
-        height: 40px;
-        padding: 0 12px;
-        border: 1px solid var(--line);
-        border-radius: var(--radius-medium);
-        font-family: $font-sans;
-        font-size: 13px;
-        background-color: var(--paper-card);
-        color: var(--ink);
-        @include transition-base;
-
-        &:focus {
-          border-color: var(--indigo);
-        }
-      }
-    }
-
     .back-link {
       text-align: center;
       font-size: 12.5px;
@@ -204,35 +165,31 @@ import { AuthService } from '../../core/services/auth.service';
     }
   `]
 })
-export class ForgotPasswordComponent {
-  @ViewChild('emailInput') emailInputRef!: ElementRef<HTMLInputElement>;
-  isSubmitting = signal<boolean>(false);
+export class VerifyEmailComponent implements OnInit {
+  status = signal<'verifying' | 'success' | 'error'>('verifying');
+  errorMessage = signal<string>('That link is invalid or expired.');
 
-  constructor(public state: AppStateService, private router: Router, private authService: AuthService) {}
+  constructor(
+    public state: AppStateService,
+    private route: ActivatedRoute,
+    private authService: AuthService
+  ) {}
 
-  onSubmit(event: Event) {
-    event.preventDefault();
-    if (this.isSubmitting()) return;
-
-    const email = this.emailInputRef?.nativeElement.value.trim() ?? '';
-    if (!email || !email.includes('@')) {
-      this.state.showToast('Enter a valid email to continue.');
+  ngOnInit() {
+    const token = this.route.snapshot.queryParamMap.get('token');
+    if (!token) {
+      this.status.set('error');
       return;
     }
 
-    this.isSubmitting.set(true);
-    // Backend always returns success here regardless of whether the account exists
-    // (avoids leaking which emails are registered), so the toast/navigation is the
-    // same either way -- that's a deliberate security choice, not a missing check.
-    this.authService.forgotPassword(email).subscribe({
+    this.authService.verifyEmail(token).subscribe({
       next: () => {
-        this.isSubmitting.set(false);
-        this.state.showToast('If an account exists, instructions have been sent to your email.');
-        this.router.navigate(['/reset-password']);
+        this.status.set('success');
+        this.state.showToast('Email verified! You can now log in.');
       },
       error: (err) => {
-        this.isSubmitting.set(false);
-        this.state.showToast(err?.error?.message ?? 'Something went wrong. Please try again.');
+        this.status.set('error');
+        this.errorMessage.set(err?.error?.message ?? 'That link is invalid or expired.');
       },
     });
   }

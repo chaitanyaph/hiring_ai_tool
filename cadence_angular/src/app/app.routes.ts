@@ -12,7 +12,9 @@ export const routes: Routes = [
   { path: 'register-candidate', loadComponent: () => import('./features/auth/register-candidate.component').then(m => m.RegisterCandidateComponent) },
   { path: 'forgot-password', loadComponent: () => import('./features/auth/forgot-password.component').then(m => m.ForgotPasswordComponent) },
   { path: 'reset-password', loadComponent: () => import('./features/auth/reset-password.component').then(m => m.ResetPasswordComponent) },
-  
+  { path: 'verify-email', loadComponent: () => import('./features/auth/verify-email.component').then(m => m.VerifyEmailComponent) },
+  { path: 'oauth2/callback', loadComponent: () => import('./features/auth/oauth2-callback.component').then(m => m.Oauth2CallbackComponent) },
+
   {
     path: 'recruiter',
     component: RecruiterLayoutComponent,

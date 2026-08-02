@@ -28,11 +28,6 @@ const LANGUAGE_OPTIONS = ['English (Professional)', 'Hindi (Native)', 'Marathi (
         </div>
       </div>
 
-      <!-- Toast Message overlay -->
-      <div class="toast-overlay" *ngIf="state.toastMessage()">
-        <svg viewBox="0 0 24 24" width="16" height="16" style="stroke:#8FD9C4; fill:none; stroke-width:2.4; margin-right:6px;"><path d="M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01 9 11.01"/></svg>
-        {{ state.toastMessage() }}
-      </div>
 
       <!-- ================= MODAL: CANDIDATE PROFILE WIZARD (10 STEPS) ================= -->
       <div class="modal-overlay" [class.show]="state.activeModal() === 'profile-wizard'" (click)="state.closeModal()">

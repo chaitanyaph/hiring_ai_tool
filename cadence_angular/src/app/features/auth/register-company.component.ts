@@ -5,6 +5,7 @@ import { AppStateService } from '../../core/services/app-state.service';
 import { AppButtonComponent } from '../../shared/components/app-button.component';
 import { AuthService } from '../../core/services/auth.service';
 import { UserType } from '../../core/models/auth.model';
+import { isValidEmail, validatePassword } from '../../core/utils/validators';
 
 @Component({
   selector: 'app-register-company',
@@ -364,8 +365,13 @@ export class RegisterCompanyComponent {
     const email = this.emailInputRef?.nativeElement.value.trim() ?? '';
     const password = this.passInputRef?.nativeElement.value ?? '';
 
-    if (!companyName || !email || !email.includes('@') || !password) {
-      this.state.showToast('Please fill in every field to continue.');
+    if (!companyName || !email || !isValidEmail(email)) {
+      this.state.showToast('Please fill in every field with a valid value to continue.');
+      return;
+    }
+    const passwordIssue = validatePassword(password);
+    if (passwordIssue) {
+      this.state.showToast(passwordIssue);
       return;
     }
 
@@ -380,8 +386,8 @@ export class RegisterCompanyComponent {
       .subscribe({
         next: () => {
           this.isSubmitting.set(false);
-          this.state.showToast('Workspace created! Check your email to verify your account.');
-          this.router.navigate(['/login']);
+          this.state.showToast('Workspace created! Please verify your email before logging in — check your inbox for the link.');
+          this.router.navigate(['/login'], { queryParams: { tab: 'team' } });
         },
         error: (err) => {
           this.isSubmitting.set(false);

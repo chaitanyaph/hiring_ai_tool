@@ -5,6 +5,7 @@ import { AppStateService } from '../../core/services/app-state.service';
 import { AppButtonComponent } from '../../shared/components/app-button.component';
 import { AuthService } from '../../core/services/auth.service';
 import { UserType } from '../../core/models/auth.model';
+import { isValidEmail, validatePassword } from '../../core/utils/validators';
 
 @Component({
   selector: 'app-register-candidate',
@@ -36,13 +37,15 @@ import { UserType } from '../../core/models/auth.model';
             <!-- Full Name -->
             <div class="input-field">
               <label>Full name</label>
-              <input type="text" placeholder="e.g. Rahul Mehta" required #nameInput>
+              <input type="text" placeholder="e.g. Rahul Mehta" required #nameInput (input)="clearErrors()">
+              <div class="field-error-msg" [class.show]="nameError()">{{ nameError() }}</div>
             </div>
 
             <!-- Email -->
             <div class="input-field">
               <label>Work or personal email</label>
-              <input type="email" placeholder="rahul.mehta@email.com" required #emailInput>
+              <input type="email" placeholder="rahul.mehta@email.com" required #emailInput (input)="clearErrors()">
+              <div class="field-error-msg" [class.show]="emailError()">{{ emailError() }}</div>
             </div>
 
             <!-- Resume upload dropzone -->
@@ -57,7 +60,9 @@ import { UserType } from '../../core/models/auth.model';
             <!-- Password -->
             <div class="input-field">
               <label>Password</label>
-              <input type="password" placeholder="••••••••" required #passwordInput>
+              <input type="password" placeholder="••••••••" required #passwordInput (input)="clearErrors()">
+              <div style="color:var(--ink-soft); font-size:11px; margin-top:5px;">At least 8 characters, with an uppercase letter, lowercase letter, number and symbol.</div>
+              <div class="field-error-msg" [class.show]="passwordError()">{{ passwordError() }}</div>
             </div>
 
             <!-- Action -->
@@ -265,7 +270,17 @@ export class RegisterCandidateComponent {
   uploadedFileName = signal<string>('');
   isSubmitting = signal<boolean>(false);
 
+  nameError = signal<string | null>(null);
+  emailError = signal<string | null>(null);
+  passwordError = signal<string | null>(null);
+
   constructor(public state: AppStateService, private router: Router, private authService: AuthService) {}
+
+  clearErrors() {
+    this.nameError.set(null);
+    this.emailError.set(null);
+    this.passwordError.set(null);
+  }
 
   /** Real resume upload/parsing is Module 5 (Resume) + Module 7 (Resume Parser) scope -- this stays a placeholder until then. */
   triggerUpload() {
@@ -276,23 +291,35 @@ export class RegisterCandidateComponent {
   onSubmit(event: Event) {
     event.preventDefault();
     if (this.isSubmitting()) return;
+    this.clearErrors();
 
     const fullName = this.nameInputRef?.nativeElement.value.trim() ?? '';
     const email = this.emailInputRef?.nativeElement.value.trim() ?? '';
     const password = this.passwordInputRef?.nativeElement.value ?? '';
 
-    if (!fullName || !email || !email.includes('@') || !password) {
-      this.state.showToast('Please fill in every field to continue.');
-      return;
+    let valid = true;
+    if (!fullName) {
+      this.nameError.set('Enter your full name to continue.');
+      valid = false;
     }
+    if (!email || !isValidEmail(email)) {
+      this.emailError.set('Enter a valid email address.');
+      valid = false;
+    }
+    const passwordIssue = validatePassword(password);
+    if (passwordIssue) {
+      this.passwordError.set(passwordIssue);
+      valid = false;
+    }
+    if (!valid) return;
 
     this.isSubmitting.set(true);
 
     this.authService.register({ fullName, email, password, userType: UserType.CANDIDATE }).subscribe({
       next: () => {
         this.isSubmitting.set(false);
-        this.state.showToast('Account created! Check your email to verify your account.');
-        this.router.navigate(['/login']);
+        this.state.showToast('Account created! Please verify your email before logging in — check your inbox for the link.');
+        this.router.navigate(['/login'], { queryParams: { tab: 'candidate' } });
       },
       error: (err) => {
         this.isSubmitting.set(false);

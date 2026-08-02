@@ -1559,15 +1559,6 @@ app-topbar {
   .input-wrap input.field-error{ border-color:var(--danger); box-shadow:0 0 0 3px rgba(179,65,44,0.1); }
   .field .field-error-msg{ margin-top:6px; }
   .demo-hint{ background:var(--gold-tint); border:1px dashed var(--gold); border-radius:9px; padding:11px 13px; font-size:12px; color:#8A6A1F; line-height:1.5; margin-bottom:18px; }
-  .demo-skip{
-    position:fixed; top:16px; right:16px; z-index:200;
-    background:var(--indigo-deep); color:var(--paper);
-    border:none; border-radius:999px; padding:9px 16px;
-    font-family:'Inter',sans-serif; font-size:12.5px; font-weight:600;
-    cursor:pointer; box-shadow:0 6px 18px rgba(28,27,41,0.25);
-  }
-  .demo-skip:hover{ background:var(--indigo); }
-
   .sidebar-footer{ position:relative; cursor:pointer; }
   .sidebar-footer:hover{ background:rgba(250,249,244,0.06); border-radius:10px; }
   .footer-menu{ position:absolute; bottom:58px; left:8px; right:8px; background:var(--paper-card); border:1px solid var(--line); border-radius:10px; box-shadow:0 10px 28px rgba(28,27,41,0.22); padding:6px; display:none; z-index:40; }

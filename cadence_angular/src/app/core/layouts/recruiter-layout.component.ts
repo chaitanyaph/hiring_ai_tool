@@ -31,12 +31,6 @@ import { RoundType } from '../models/interview-management.model';
         </div>
       </div>
 
-      <!-- Toast Message overlay -->
-      <div class="toast-overlay" *ngIf="state.toastMessage()">
-        <svg viewBox="0 0 24 24" width="16" height="16" style="stroke:#8FD9C4; fill:none; stroke-width:2.4; margin-right:6px;"><path d="M22 11.08V12a10 10 0 11-5.93-9.14M22 4L12 14.01 9 11.01"/></svg>
-        {{ state.toastMessage() }}
-      </div>
-
       <!-- ================= MODAL: JOB WIZARD ================= -->
       <div class="modal-overlay" [class.show]="state.activeModal() === 'job'" (click)="state.closeModal()">
         <div class="modal" (click)="$event.stopPropagation()">
@@ -67,12 +61,13 @@ import { RoundType } from '../models/interview-management.model';
               </div>
               <div class="field-full">
                 <label>Department</label>
-                <select [value]="jobDept()" (change)="jobDept.set($any($event.target).value)">
-                  <option value="Engineering">Engineering</option>
-                  <option value="Infrastructure">Infrastructure</option>
-                  <option value="People">People</option>
-                  <option value="Design">Design</option>
+                <select *ngIf="state.departments().length; else noDepartments" [value]="jobDept()" (change)="jobDept.set($any($event.target).value)">
+                  <option value="" disabled>Select a department</option>
+                  <option *ngFor="let d of state.departments()" [value]="d.departmentName">{{ d.departmentName }}</option>
                 </select>
+                <ng-template #noDepartments>
+                  <div class="field-hint">No departments yet. <button type="button" style="background:none;border:none;color:var(--indigo);font-weight:600;cursor:pointer;padding:0;font-family:inherit;font-size:inherit;" (click)="state.openModal('department')">Add one</button> before creating a job.</div>
+                </ng-template>
               </div>
               <div class="field-full">
                 <label>Role description</label>
@@ -573,7 +568,7 @@ export class RecruiterLayoutComponent {
 
   // Wizard fields
   jobTitle = signal<string>('');
-  jobDept = signal<string>('Engineering');
+  jobDept = signal<string>('');
   jobDesc = signal<string>('');
   jobWorkType = signal<string>('Hybrid');
   jobLoc = signal<string>('');
@@ -632,7 +627,7 @@ export class RecruiterLayoutComponent {
   resetJobWizard() {
     this.wizardStep.set(1);
     this.jobTitle.set('');
-    this.jobDept.set('Engineering');
+    this.jobDept.set('');
     this.jobDesc.set('');
     this.jobWorkType.set('Hybrid');
     this.jobLoc.set('');
@@ -642,7 +637,7 @@ export class RecruiterLayoutComponent {
     this.jobSalMin.set(12);
     this.jobSalMax.set(28);
     this.jobNotice.set('30 days');
-    this.jobDeadline.set('2026-07-20');
+    this.jobDeadline.set('');
   }
 
   openJobWizard() {
@@ -657,15 +652,27 @@ export class RecruiterLayoutComponent {
         this.state.showToast('Please enter a job title');
         return;
       }
+      if (this.wizardStep() === 1 && !this.jobDept()) {
+        this.state.showToast('Please select a department');
+        return;
+      }
+      if (this.wizardStep() === 1 && !this.jobDesc().trim()) {
+        this.state.showToast('Please enter a role description');
+        return;
+      }
+      if (this.wizardStep() === 2 && !this.jobLoc().trim()) {
+        this.state.showToast('Please enter a location');
+        return;
+      }
       this.wizardStep.update(s => s + 1);
     } else {
       // Done / Publish
       this.state.createJobFromWizard({
         title: this.jobTitle().trim(),
         departmentName: this.jobDept(),
-        description: this.jobDesc().trim() || 'Role created via quick wizard.',
+        description: this.jobDesc().trim(),
         workType: this.jobWorkType(),
-        location: this.jobLoc().trim() || 'Pune (Hybrid)',
+        location: this.jobLoc().trim(),
         empType: this.jobEmpType(),
         openings: this.jobOpenings(),
         experienceRange: this.jobExp(),

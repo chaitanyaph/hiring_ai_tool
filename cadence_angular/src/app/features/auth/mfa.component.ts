@@ -364,9 +364,9 @@ export class MfaComponent implements OnInit, OnDestroy {
           this.router.navigate(['/recruiter/dashboard']);
         }
       },
-      error: () => {
+      error: (err) => {
         this.isSubmitting.set(false);
-        this.state.showToast('Invalid or expired code. Please try again.');
+        this.state.showToast(err?.error?.message ?? 'Invalid or expired code. Please try again.');
       },
     });
   }

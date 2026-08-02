@@ -1,6 +1,6 @@
-import { Component, signal, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, signal, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { AppStateService } from '../../core/services/app-state.service';
 import { AuthService } from '../../core/services/auth.service';
 import { UserType } from '../../core/models/auth.model';
@@ -12,7 +12,6 @@ import { mapUserResponseToUserModel } from '../../core/utils/user.mapper';
   imports: [CommonModule],
   template: `
     <div id="auth-view">
-      <button class="demo-skip" (click)="bypassLogin()">⚡ Demo shortcut: skip to dashboard</button>
       <div class="app">
 
         <!-- ================= BRAND PANEL ================= -->
@@ -100,16 +99,6 @@ import { mapUserResponseToUserModel } from '../../core/utils/user.mapper';
                   <button class="btn-primary" type="submit">Continue</button>
                 </form>
 
-                <div class="divider">or continue with</div>
-                <button type="button" class="btn-secondary" (click)="state.showToast('Redirecting to Google…')">
-                  <svg viewBox="0 0 24 24" width="16" height="16"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.7-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z"/><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.1-4 1.1-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1C3.4 21.4 7.4 24 12 24z"/><path fill="#FBBC05" d="M5.4 14.3c-.2-.7-.4-1.5-.4-2.3s.1-1.6.4-2.3V6.6H1.4C.5 8.3 0 10.1 0 12s.5 3.7 1.4 5.4l4-3.1z"/><path fill="#EA4335" d="M12 4.8c1.7 0 3.3.6 4.5 1.8l3.4-3.4C17.9 1.2 15.2 0 12 0 7.4 0 3.4 2.6 1.4 6.6l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"/></svg>
-                  Google
-                </button>
-                <button type="button" class="btn-secondary" (click)="state.showToast('Redirecting to Microsoft…')">
-                  <svg viewBox="0 0 23 23" width="15" height="15"><rect width="10" height="10" fill="#F35325"/><rect x="13" width="10" height="10" fill="#81BC06"/><rect y="13" width="10" height="10" fill="#05A6F0"/><rect x="13" y="13" width="10" height="10" fill="#FFBA08"/></svg>
-                  Microsoft
-                </button>
-
                 <p class="footer-note">New company? <button type="button" class="link" (click)="registerCompany()">Create a workspace</button></p>
               </div>
 
@@ -144,13 +133,9 @@ import { mapUserResponseToUserModel } from '../../core/utils/user.mapper';
                 </form>
 
                 <div class="divider">or continue with</div>
-                <button type="button" class="btn-secondary" (click)="state.showToast('Redirecting to Google…')">
+                <button type="button" class="btn-secondary" (click)="authService.startGoogleLogin()">
                   <svg viewBox="0 0 24 24" width="16" height="16"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.7-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z"/><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.1-4 1.1-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1C3.4 21.4 7.4 24 12 24z"/><path fill="#FBBC05" d="M5.4 14.3c-.2-.7-.4-1.5-.4-2.3s.1-1.6.4-2.3V6.6H1.4C.5 8.3 0 10.1 0 12s.5 3.7 1.4 5.4l4-3.1z"/><path fill="#EA4335" d="M12 4.8c1.7 0 3.3.6 4.5 1.8l3.4-3.4C17.9 1.2 15.2 0 12 0 7.4 0 3.4 2.6 1.4 6.6l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"/></svg>
                   Google
-                </button>
-                <button type="button" class="btn-secondary" (click)="state.showToast('Redirecting to LinkedIn…')">
-                  <svg viewBox="0 0 24 24" width="15" height="15"><rect width="24" height="24" rx="4" fill="#0A66C2"/><path fill="#fff" d="M7.1 9.6H4.4V19h2.7V9.6zM5.8 8.4a1.6 1.6 0 100-3.2 1.6 1.6 0 000 3.2zM19.6 19h-2.7v-5c0-1.2-.4-2-1.5-2-.8 0-1.3.6-1.5 1.1-.1.2-.1.5-.1.8v5.1H11s0-8.3 0-9.4h2.7v1.3c.4-.6 1-1.5 2.6-1.5 1.9 0 3.3 1.2 3.3 3.9V19z"/></svg>
-                  LinkedIn
                 </button>
 
                 <p class="footer-note">First time applying? <button type="button" class="link" (click)="registerCandidate()">Create an account</button></p>
@@ -181,7 +166,7 @@ import { mapUserResponseToUserModel } from '../../core/utils/user.mapper';
     }
   `]
 })
-export class LoginComponent {
+export class LoginComponent implements OnInit {
   @ViewChild('teamEmailInput') teamEmailInput!: ElementRef<HTMLInputElement>;
   @ViewChild('teamPasswordInput') teamPasswordInput!: ElementRef<HTMLInputElement>;
   @ViewChild('candEmailInput') candEmailInput!: ElementRef<HTMLInputElement>;
@@ -195,7 +180,18 @@ export class LoginComponent {
   emailError = signal<string | null>(null);
   passwordError = signal<string | null>(null);
 
-  constructor(public state: AppStateService, private router: Router, private authService: AuthService) {}
+  constructor(
+    public state: AppStateService,
+    private router: Router,
+    private route: ActivatedRoute,
+    public authService: AuthService
+  ) {}
+
+  ngOnInit() {
+    if (this.route.snapshot.queryParamMap.get('tab') === 'candidate') {
+      this.activeTab.set('candidate');
+    }
+  }
 
   clearErrors() {
     this.emailError.set(null);
@@ -259,9 +255,9 @@ export class LoginComponent {
           this.router.navigate(['/recruiter/dashboard']);
         }
       },
-      error: () => {
+      error: (err) => {
         this.isSubmitting.set(false);
-        this.passwordError.set('Invalid email or password.');
+        this.passwordError.set(err?.error?.message ?? 'Invalid email or password.');
       },
     });
   }
@@ -276,11 +272,5 @@ export class LoginComponent {
 
   registerCandidate() {
     this.router.navigate(['/register-candidate']);
-  }
-
-  /** Dev-only demo shortcut, predates real auth -- now that /recruiter is guarded, this bounces back to /login since it never obtains a real token. Left in place per "never remove existing functionality." */
-  bypassLogin() {
-    this.state.loginAsRecruiter();
-    this.router.navigate(['/recruiter/dashboard']);
   }
 }
