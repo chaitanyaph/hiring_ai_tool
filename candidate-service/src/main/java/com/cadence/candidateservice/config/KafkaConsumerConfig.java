@@ -1,4 +1,4 @@
-package com.cadence.companyservice.config;
+package com.cadence.candidateservice.config;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
@@ -8,21 +8,12 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
-import org.springframework.kafka.support.converter.JsonMessageConverter;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
+import org.springframework.kafka.support.serializer.JsonDeserializer;
 
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Uses a JsonMessageConverter (rather than a JsonDeserializer with a
- * single fixed VALUE_DEFAULT_TYPE) so the same consumer group can
- * deserialize different payload shapes per @KafkaListener method,
- * inferred from each listener's declared parameter type -- needed here
- * since this group consumes UserCreatedEvent, UserRegisteredEvent and
- * InvitationAcceptedEvent, all produced by a different service (Auth)
- * that doesn't share this service's Java type headers.
- */
 @Configuration
 public class KafkaConsumerConfig {
 
@@ -33,17 +24,18 @@ public class KafkaConsumerConfig {
     public ConsumerFactory<String, Object> consumerFactory() {
         Map<String, Object> config = new HashMap<>();
         config.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        config.put(ConsumerConfig.GROUP_ID_CONFIG, "company-service-group");
+        config.put(ConsumerConfig.GROUP_ID_CONFIG, "candidate-service-group");
+        config.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
         config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
         config.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class);
-        // The Kafka-level deserializer only needs to hand back the raw JSON string --
-        // JsonMessageConverter (below) does the actual type-specific conversion per
-        // @KafkaListener method, inferred from that method's declared parameter type.
-        // (Wrapping a JsonDeserializer here instead double-converts: the listener
-        // container tries to run the JsonMessageConverter over an already-deserialized
-        // POJO, which throws "Only String, Bytes, or byte[] supported".)
-        config.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, StringDeserializer.class);
+        config.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
+        config.put(JsonDeserializer.TRUSTED_PACKAGES, "com.cadence.candidateservice.kafka.event");
+        config.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+        // auth-service publishes without Spring's type headers (different service, different Java
+        // type) -- with USE_TYPE_INFO_HEADERS off, JsonDeserializer needs this default to know what
+        // to deserialize into. Only one topic/type is consumed here, so a single default is enough.
+        config.put(JsonDeserializer.VALUE_DEFAULT_TYPE, "com.cadence.candidateservice.kafka.event.UserRegisteredEvent");
         return new DefaultKafkaConsumerFactory<>(config);
     }
 
@@ -51,7 +43,6 @@ public class KafkaConsumerConfig {
     public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory() {
         ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(consumerFactory());
-        factory.setRecordMessageConverter(new JsonMessageConverter());
         return factory;
     }
 }

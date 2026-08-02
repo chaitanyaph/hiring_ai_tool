@@ -18,8 +18,12 @@ import java.util.UUID;
 @SQLRestriction("is_deleted = false")
 public class Company extends BaseAuditEntity implements Serializable {
 
+    // Not auto-generated: this must be the same companyId Auth Service generated
+    // when it created the company at registration time, since that's the ID
+    // carried in every JWT and used to correlate this company across every
+    // other microservice. Assigned explicitly by whatever creates the row
+    // (see CompanyEventConsumer#onUserRegistered).
     @Id
-    @GeneratedValue
     private UUID id;
 
     @Column(name = "company_name", nullable = false, length = 150)

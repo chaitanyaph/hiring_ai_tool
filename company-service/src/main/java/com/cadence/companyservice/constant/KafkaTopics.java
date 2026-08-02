@@ -17,4 +17,5 @@ public final class KafkaTopics {
     // Consumed
     public static final String USER_CREATED = "auth.user.created";
     public static final String INVITATION_ACCEPTED = "auth.invitation.accepted";
+    public static final String USER_REGISTERED = "auth.user.registered";
 }
