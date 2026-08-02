@@ -74,8 +74,12 @@ public class JobServiceImpl implements JobService {
                 .status(JobStatus.DRAFT)
                 .createdBy(currentUser.getUserId())
                 .updatedBy(currentUser.getUserId())
+                .recruiterId(currentUser.getUserId())
                 .build();
         job = jobRepository.save(job);
+
+        jobAssignmentRepository.save(JobAssignment.builder()
+                .jobId(job.getId()).userId(currentUser.getUserId()).assignmentRole(JobAssignmentRole.RECRUITER).build());
 
         saveDescription(job.getId(), request.getDescriptionHtml());
         seedDefaultPipeline(job.getId());

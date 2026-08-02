@@ -2,6 +2,7 @@ package com.cadence.jobservice.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -28,6 +29,19 @@ public class GlobalExceptionHandler {
                 .map(fe -> ApiError.FieldValidationError.builder().field(fe.getField()).message(fe.getDefaultMessage()).build())
                 .toList();
         return buildResponse(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_FAILED, "One or more fields are invalid", request, fieldErrors);
+    }
+
+    /**
+     * Catches the raw SQL "column cannot be null" exception that a required-but-omitted
+     * field (e.g. departmentId, which the wizard's "save draft" step intentionally allows
+     * skipping mid-flow -- see JobBasicInfoRequest) surfaces as, and turns it into a real
+     * 400 instead of letting it fall through to the generic 500 handler below.
+     */
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiError> handleDataIntegrityViolation(DataIntegrityViolationException ex, HttpServletRequest request) {
+        log.warn("Data integrity violation on {}: {}", request.getRequestURI(), ex.getMostSpecificCause().getMessage());
+        return buildResponse(HttpStatus.BAD_REQUEST, ErrorCode.VALIDATION_FAILED,
+                "This job is missing required information (e.g. department) needed to complete this action", request, null);
     }
 
     @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
