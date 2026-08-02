@@ -4,34 +4,34 @@ import com.cadence.authservice.constant.AuthProvider;
 import com.cadence.authservice.constant.RoleName;
 import com.cadence.authservice.constant.UserStatus;
 import com.cadence.authservice.constant.UserType;
-import com.cadence.authservice.dto.response.TokenResponse;
 import com.cadence.authservice.entity.Role;
 import com.cadence.authservice.entity.User;
 import com.cadence.authservice.repository.RoleRepository;
 import com.cadence.authservice.repository.UserRepository;
-import com.cadence.authservice.service.RefreshTokenService;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.cadence.authservice.service.AuthService;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.MediaType;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
-import java.time.LocalDateTime;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Handles the callback after Google OAuth2 login succeeds. Rather than
- * redirecting with tokens in a URL fragment (leak-prone via browser
- * history/referrer headers), we issue our own JWT pair and return them
- * as JSON, matching the exact response shape of a normal /login call so
- * the frontend has one integration path for both flows.
+ * Handles the callback after Google OAuth2 login succeeds. This is a full-page
+ * browser redirect from Google, not an XHR the Angular SPA can read the body
+ * of -- so rather than writing tokens into the response body (which would just
+ * render as raw JSON text in the browser, never reaching the SPA), we hand the
+ * finished login off to AuthService for a one-time exchange code and redirect
+ * the browser back into the SPA, which redeems that code via a normal XHR.
  */
 @Component
 @RequiredArgsConstructor
@@ -39,9 +39,10 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
-    private final JwtTokenProvider jwtTokenProvider;
-    private final RefreshTokenService refreshTokenService;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final AuthService authService;
+
+    @Value("${app.frontend.base-url:http://localhost:3000}")
+    private String frontendBaseUrl;
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication)
@@ -72,25 +73,8 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
             return userRepository.save(newUser);
         });
 
-        user.setLastLoginAt(LocalDateTime.now());
-        userRepository.save(user);
-
-        Set<String> roleNames = user.getRoles().stream().map(Role::getName).collect(java.util.stream.Collectors.toSet());
-        Set<String> permissionNames = user.getRoles().stream()
-                .flatMap(r -> r.getPermissions().stream())
-                .map(p -> p.getName())
-                .collect(java.util.stream.Collectors.toSet());
-
-        String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), user.getEmail(), roleNames, permissionNames, user.getCompanyId());
-        String refreshToken = refreshTokenService.issueRefreshToken(user.getId(), false, request.getHeader("User-Agent"), request.getRemoteAddr());
-
-        TokenResponse tokenResponse = TokenResponse.builder()
-                .accessToken(accessToken)
-                .refreshToken(refreshToken)
-                .expiresInSeconds(jwtTokenProvider.getAccessTokenExpirationSeconds())
-                .build();
-
-        response.setContentType(MediaType.APPLICATION_JSON_VALUE);
-        response.getWriter().write(objectMapper.writeValueAsString(tokenResponse));
+        String code = authService.issueOAuthExchangeCode(user);
+        String redirectUrl = frontendBaseUrl + "/oauth2/callback?code=" + URLEncoder.encode(code, StandardCharsets.UTF_8);
+        response.sendRedirect(redirectUrl);
     }
 }

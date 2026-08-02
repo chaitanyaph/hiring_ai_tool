@@ -15,6 +15,7 @@ public final class SecurityConstants {
             "/api/v1/auth/verify-email/**",
             "/api/v1/auth/resend-verification",
             "/api/v1/auth/mfa/verify-login",
+            "/api/v1/auth/oauth2/exchange",
             "/oauth2/**",
             "/login/oauth2/**",
             "/v3/api-docs/**",

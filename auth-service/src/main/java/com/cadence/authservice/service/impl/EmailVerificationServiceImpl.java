@@ -2,6 +2,7 @@ package com.cadence.authservice.service.impl;
 
 import com.cadence.authservice.constant.AuditEventType;
 import com.cadence.authservice.constant.UserStatus;
+import com.cadence.authservice.entity.Company;
 import com.cadence.authservice.entity.EmailVerificationToken;
 import com.cadence.authservice.entity.User;
 import com.cadence.authservice.exception.InvalidTokenException;
@@ -9,6 +10,7 @@ import com.cadence.authservice.exception.ResourceNotFoundException;
 import com.cadence.authservice.exception.TokenExpiredException;
 import com.cadence.authservice.kafka.event.UserRegisteredEvent;
 import com.cadence.authservice.kafka.producer.AuthEventProducer;
+import com.cadence.authservice.repository.CompanyRepository;
 import com.cadence.authservice.repository.EmailVerificationTokenRepository;
 import com.cadence.authservice.repository.UserRepository;
 import com.cadence.authservice.service.AuditLogService;
@@ -29,6 +31,7 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
 
     private final EmailVerificationTokenRepository tokenRepository;
     private final UserRepository userRepository;
+    private final CompanyRepository companyRepository;
     private final EmailService emailService;
     private final AuditLogService auditLogService;
     private final AuthEventProducer eventProducer;
@@ -52,15 +55,21 @@ public class EmailVerificationServiceImpl implements EmailVerificationService {
 
         emailService.sendVerificationEmail(user.getEmail(), user.getFullName(), rawToken);
 
-        eventProducer.publishUserRegistered(UserRegisteredEvent.builder()
+        UserRegisteredEvent.UserRegisteredEventBuilder eventBuilder = UserRegisteredEvent.builder()
                 .userId(user.getId())
                 .fullName(user.getFullName())
                 .email(user.getEmail())
                 .userType(user.getUserType().name())
                 .companyId(user.getCompanyId())
                 .verificationLink("/verify-email?token=" + rawToken)
-                .occurredAt(LocalDateTime.now())
-                .build());
+                .occurredAt(LocalDateTime.now());
+
+        if (user.getCompanyId() != null) {
+            companyRepository.findById(user.getCompanyId())
+                    .ifPresent(company -> eventBuilder.companyName(company.getName()).companySlug(company.getSlug()));
+        }
+
+        eventProducer.publishUserRegistered(eventBuilder.build());
     }
 
     @Override

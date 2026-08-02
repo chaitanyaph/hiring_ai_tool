@@ -24,14 +24,17 @@ import com.cadence.authservice.repository.RoleRepository;
 import com.cadence.authservice.repository.UserRepository;
 import com.cadence.authservice.security.JwtTokenProvider;
 import com.cadence.authservice.service.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
@@ -62,6 +65,11 @@ public class AuthServiceImpl implements AuthService {
     private final AuditLogService auditLogService;
     private final AuthEventProducer eventProducer;
     private final UserMapper userMapper;
+    private final StringRedisTemplate redisTemplate;
+    private final ObjectMapper objectMapper;
+
+    private static final String OAUTH_EXCHANGE_PREFIX = "auth:oauth-exchange:";
+    private static final Duration OAUTH_EXCHANGE_TTL = Duration.ofSeconds(60);
 
     @Value("${app.security.max-failed-login-attempts}")
     private int maxFailedLoginAttempts;
@@ -230,6 +238,34 @@ public class AuthServiceImpl implements AuthService {
     public UserResponse getCurrentUser(UUID userId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new ResourceNotFoundException("User not found"));
         return enrichWithCompanyName(userMapper.toResponse(user));
+    }
+
+    @Override
+    @Transactional
+    public String issueOAuthExchangeCode(User user) {
+        AuthResponse response = finalizeLogin(user, false, null, null);
+        String code = UUID.randomUUID().toString();
+        try {
+            redisTemplate.opsForValue().set(OAUTH_EXCHANGE_PREFIX + code, objectMapper.writeValueAsString(response), OAUTH_EXCHANGE_TTL);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to serialize OAuth2 login payload", e);
+        }
+        return code;
+    }
+
+    @Override
+    public AuthResponse exchangeOAuthCode(String code) {
+        String key = OAUTH_EXCHANGE_PREFIX + code;
+        String json = redisTemplate.opsForValue().get(key);
+        if (json == null) {
+            throw new InvalidTokenException("This login link has expired or was already used. Please try signing in again.");
+        }
+        redisTemplate.delete(key);
+        try {
+            return objectMapper.readValue(json, AuthResponse.class);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to deserialize OAuth2 login payload", e);
+        }
     }
 
     // ------------------------------------------------------------------

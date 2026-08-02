@@ -12,6 +12,8 @@ public class UserRegisteredEvent {
     private String email;
     private String userType;
     private UUID companyId;
+    private String companyName;
+    private String companySlug;
     private String verificationLink;
     private LocalDateTime occurredAt;
 }

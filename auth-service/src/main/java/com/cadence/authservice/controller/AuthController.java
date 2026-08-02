@@ -50,6 +50,13 @@ public class AuthController {
         return ResponseEntity.ok(ApiResponse.ok(message, response));
     }
 
+    @GetMapping("/oauth2/exchange")
+    @Operation(summary = "Redeem a one-time code from the OAuth2 callback redirect for the actual token/user payload")
+    public ResponseEntity<ApiResponse<AuthResponse>> exchangeOAuthCode(@RequestParam String code) {
+        AuthResponse response = authService.exchangeOAuthCode(code);
+        return ResponseEntity.ok(ApiResponse.ok("Login successful", response));
+    }
+
     @PostMapping("/mfa/verify-login")
     @Operation(summary = "Complete login by submitting the 6-digit MFA code for the pending session")
     public ResponseEntity<ApiResponse<AuthResponse>> verifyMfaLogin(@Valid @RequestBody MfaVerifyRequest request, HttpServletRequest httpRequest) {

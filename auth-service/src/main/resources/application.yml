@@ -1,5 +1,6 @@
 server:
   port: 8081
+  forward-headers-strategy: framework
   error:
     include-message: always
     include-binding-errors: always
@@ -92,7 +93,12 @@ spring:
             client-id: ${GOOGLE_CLIENT_ID:dummy-client-id}
             client-secret: ${GOOGLE_CLIENT_SECRET:dummy-client-secret}
             scope: profile,email
-            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+            # Hardcoded to the known public origin rather than Spring's "{baseUrl}" template --
+            # {baseUrl} infers scheme/host from the inbound request, but that request has already
+            # passed through two proxy hops (Caddy -> Gateway) before reaching here, and testing
+            # showed the external https:// gets lost along the way, producing an http:// redirect_uri
+            # Google would reject as a mismatch against the https:// URI registered in Google Cloud Console.
+            redirect-uri: "${app.frontend.base-url}/auth/login/oauth2/code/{registrationId}"
 
 eureka:
   client:
@@ -124,6 +130,8 @@ app:
     mfa-issuer: Cadence
   cors:
     allowed-origins: ${CORS_ORIGINS:http://localhost:3000}
+  frontend:
+    base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
 
 springdoc:
   api-docs:

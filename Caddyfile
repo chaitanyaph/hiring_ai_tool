@@ -9,7 +9,12 @@
 	# /candidate/** (e.g. /candidate/dashboard), so a bare /candidate/* match
 	# would swallow Angular's own routes into the Gateway and 401 them
 	# instead of serving the SPA. Matching /candidate/api/* only is precise.
-	@api path /auth/api/* /company/api/* /jobs/api/* /candidate/api/* /resume/api/* /application/api/* /resume-parser/api/* /ai-interview/api/* /coding-assessment/api/* /interview-management/api/* /notification/api/* /offer-management/api/* /analytics/api/*
+	# /auth/oauth2/* and /auth/login/oauth2/* are Spring Security's OAuth2 login
+	# entry point and callback -- not under /api/, but still real backend paths
+	# (Gateway strips "/auth" and forwards to auth-service's own
+	# /oauth2/authorization/google and /login/oauth2/code/google), so they need
+	# an explicit match alongside the /api/* ones.
+	@api path /auth/api/* /auth/oauth2/* /auth/login/oauth2/* /company/api/* /jobs/api/* /candidate/api/* /resume/api/* /application/api/* /resume-parser/api/* /ai-interview/api/* /coding-assessment/api/* /interview-management/api/* /notification/api/* /offer-management/api/* /analytics/api/*
 	handle @api {
 		reverse_proxy api-gateway-service:8080
 	}
