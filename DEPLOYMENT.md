@@ -111,7 +111,7 @@ Running code execution needs [Judge0](https://github.com/judge0/judge0) self-hos
 
 ## 8. Automatic deploys via GitHub Actions (optional but recommended)
 
-`.github/workflows/ci-cd.yml` builds and tests all 15 services + the Angular app on every push/PR, and on a push to `main` it SSHes into the VM and re-deploys automatically (`git pull && docker compose up -d --build`). To enable the deploy step, add these three repo secrets (GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**):
+`.github/workflows/ci-cd.yml` builds and tests all 15 services + the Angular app on every push/PR, and on a push to `master` it rsyncs a fresh production Angular build into the VM's `frontend-dist` and SSHes in to re-deploy the backend (`git pull && docker compose up -d --build`). To enable the deploy step, add these three repo secrets (GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**):
 
 - `VM_HOST` — the VM's public IP or your `CADDY_DOMAIN`.
 - `VM_USER` — the SSH user you log in as (e.g. `ubuntu`).

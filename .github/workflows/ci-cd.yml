@@ -1,20 +1,21 @@
 name: CI/CD
 
 # Build + test every backend service and the Angular app on every push/PR.
-# Deploy only runs on a push to main, and only after every build-and-test job
+# Deploy only runs on a push to master, and only after every build-and-test job
 # passes. Deploy re-builds Docker images directly on the VM via `docker compose
 # up -d --build` (the same command DEPLOYMENT.md's manual steps use) rather than
 # pushing to a separate container registry first -- docker-compose.yml already
 # builds each service `build: ./service-name` from source, so building a second
 # time in CI just to push images nobody references would burn free CI minutes
 # for no benefit and require a registry-based rewrite of docker-compose.yml that
-# isn't otherwise needed.
+# isn't otherwise needed. The Angular frontend has no such build-on-VM path (no
+# Node on the VM), so its production build is rsynced in directly instead.
 
 on:
   push:
-    branches: [main]
+    branches: [master]
   pull_request:
-    branches: [main]
+    branches: [master]
 
 jobs:
   build-and-test-backend:
@@ -82,10 +83,45 @@ jobs:
   deploy:
     name: Deploy to VM
     needs: [build-and-test-backend, build-and-test-frontend]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
-      - name: SSH deploy (git pull + docker compose up -d --build)
+      - uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: cadence_angular/package-lock.json
+
+      - name: npm ci
+        working-directory: cadence_angular
+        run: npm ci
+
+      - name: Production build
+        working-directory: cadence_angular
+        run: npm run build -- --configuration production
+
+      # The VM has no Node install -- frontend-dist is static files served
+      # directly by Caddy (see docker-compose.yml's caddy volume mount), so
+      # the build output is synced in from here instead of being built on
+      # the VM. rsync writes into the existing frontend-dist directory
+      # rather than replacing it, because Caddy's bind mount is pinned to
+      # that directory's identity at container-start time -- swapping the
+      # directory itself (rather than its contents) orphans the mount and
+      # serves an empty root until the container is recreated.
+      - name: Sync frontend build to VM
+        uses: burnett01/rsync-deployments@7.0.1
+        with:
+          switches: -avzr --delete
+          path: cadence_angular/dist/cadence-angular/browser/
+          remote_path: ~/cadence/frontend-dist/
+          remote_host: ${{ secrets.VM_HOST }}
+          remote_user: ${{ secrets.VM_USER }}
+          remote_key: ${{ secrets.VM_SSH_KEY }}
+
+      - name: Deploy backend (git pull + docker compose up -d --build)
         uses: appleboy/ssh-action@v1.2.0
         with:
           host: ${{ secrets.VM_HOST }}
@@ -94,6 +130,6 @@ jobs:
           script: |
             set -e
             cd ~/cadence
-            git pull origin main
+            git pull origin master
             docker compose up -d --build
             docker image prune -f
