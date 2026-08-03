@@ -26,6 +26,7 @@ import com.cadence.resumeparserservice.validation.ParsedDataValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -95,30 +96,37 @@ public class ResumeParsingPipelineRunner {
                 throw new ResumeParsingPipelineException("Resume object coordinates not found in Resume Service");
             }
 
-            updateStatus(parsedResume, ParsingStatus.EXTRACTING_TEXT);
+            parsedResume = updateStatus(parsedResume, ParsingStatus.EXTRACTING_TEXT);
             writeLog(parsedResume, LogLevel.INFO, "Downloading PDF from storage");
             byte[] pdfBytes = minioObjectReader.readObject(objectDetails.getBucketName(), objectDetails.getObjectName());
             String rawText = pdfTextExtractor.extractText(pdfBytes);
             String cleanedText = textCleaner.clean(rawText);
             writeLog(parsedResume, LogLevel.INFO, "Text extracted (" + cleanedText.length() + " characters)");
 
-            log.info("DIAG resume {} -- about to updateStatus(PARSING_FIELDS)", resumeId);
-            updateStatus(parsedResume, ParsingStatus.PARSING_FIELDS);
-            log.info("DIAG resume {} -- updateStatus(PARSING_FIELDS) returned", resumeId);
+            parsedResume = updateStatus(parsedResume, ParsingStatus.PARSING_FIELDS);
             ResumeParserProvider provider = providerFactory.getActiveProvider();
-            log.info("DIAG resume {} -- got provider {}, about to call parse()", resumeId, provider.getProviderName());
             writeLog(parsedResume, LogLevel.INFO, "Sending resume text to " + provider.getProviderName());
             ParsedResumeData data = provider.parse(cleanedText);
-            log.info("DIAG resume {} -- provider.parse() returned", resumeId);
             parsedDataValidator.validate(data);
             writeLog(parsedResume, LogLevel.INFO, "Structured data received and validated");
 
             persistParsedData(parsedResume, data);
-            parsedResume.setProviderUsed(AiProvider.valueOf(provider.getProviderName()));
+            AiProvider providerUsed = AiProvider.valueOf(provider.getProviderName());
+            parsedResume.setProviderUsed(providerUsed);
             parsedResume.setStatus(ParsingStatus.PARSED);
             parsedResume.setParsedAt(LocalDateTime.now());
             parsedResume.setFailureReason(null);
-            parsedResumeRepository.save(parsedResume);
+            try {
+                parsedResumeRepository.save(parsedResume);
+            } catch (ObjectOptimisticLockingFailureException conflict) {
+                log.warn("Version conflict on final save for ParsedResume {} -- re-fetching and retrying once", parsedResume.getId());
+                ParsedResume fresh = parsedResumeRepository.findById(parsedResume.getId()).orElseThrow(() -> conflict);
+                fresh.setProviderUsed(providerUsed);
+                fresh.setStatus(ParsingStatus.PARSED);
+                fresh.setParsedAt(LocalDateTime.now());
+                fresh.setFailureReason(null);
+                parsedResumeRepository.save(fresh);
+            }
             writeLog(parsedResume, LogLevel.INFO, "Parsing completed successfully");
 
             eventProducer.publishResumeParsed(ResumeParsedEvent.builder()
@@ -142,7 +150,16 @@ public class ResumeParsingPipelineRunner {
             log.warn("Parsing failed for resume {}: {}", resumeId, reason, e);
             parsedResume.setStatus(ParsingStatus.FAILED);
             parsedResume.setFailureReason(reason);
-            parsedResumeRepository.save(parsedResume);
+            try {
+                parsedResumeRepository.save(parsedResume);
+            } catch (ObjectOptimisticLockingFailureException conflict) {
+                ParsedResume fresh = parsedResumeRepository.findById(parsedResume.getId()).orElse(null);
+                if (fresh != null) {
+                    fresh.setStatus(ParsingStatus.FAILED);
+                    fresh.setFailureReason(reason);
+                    parsedResumeRepository.save(fresh);
+                }
+            }
             writeLog(parsedResume, LogLevel.ERROR, "Parsing failed: " + reason);
 
             eventProducer.publishResumeParsingFailed(ResumeParsingFailedEvent.builder()
@@ -266,9 +283,26 @@ public class ResumeParsingPipelineRunner {
         }
     }
 
-    private void updateStatus(ParsedResume parsedResume, ParsingStatus status) {
+    /**
+     * Returns the saved (possibly re-fetched) entity -- callers must keep using
+     * this return value, not their old reference. On a version conflict
+     * (observed in practice on this row across repeated retries/requeues), a
+     * stale in-memory copy is re-read fresh from the DB and the same status
+     * change re-applied once, rather than let the whole pipeline run die on
+     * what's ultimately just a "someone else already advanced this row"
+     * situation with nothing left to actually lose.
+     */
+    private ParsedResume updateStatus(ParsedResume parsedResume, ParsingStatus status) {
         parsedResume.setStatus(status);
-        parsedResumeRepository.save(parsedResume);
+        try {
+            return parsedResumeRepository.save(parsedResume);
+        } catch (ObjectOptimisticLockingFailureException e) {
+            log.warn("Version conflict updating ParsedResume {} to {} -- re-fetching and retrying once", parsedResume.getId(), status);
+            ParsedResume fresh = parsedResumeRepository.findById(parsedResume.getId())
+                    .orElseThrow(() -> e);
+            fresh.setStatus(status);
+            return parsedResumeRepository.save(fresh);
+        }
     }
 
     private void writeLog(ParsedResume parsedResume, LogLevel level, String message) {

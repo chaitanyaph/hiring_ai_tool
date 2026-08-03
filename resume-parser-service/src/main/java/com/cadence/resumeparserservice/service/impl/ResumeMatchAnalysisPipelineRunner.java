@@ -83,11 +83,22 @@ public class ResumeMatchAnalysisPipelineRunner {
             MatchAnalysisData data = provider.analyzeMatch(resumeSnapshot, jobSnapshot);
 
             persistMatchData(resumeMatch, data);
-            resumeMatch.setProviderUsed(AiProvider.valueOf(provider.getProviderName()));
+            AiProvider providerUsed = AiProvider.valueOf(provider.getProviderName());
+            resumeMatch.setProviderUsed(providerUsed);
             resumeMatch.setStatus(ResumeMatchStatus.ANALYZED);
             resumeMatch.setAnalyzedAt(LocalDateTime.now());
             resumeMatch.setFailureReason(null);
-            resumeMatchRepository.save(resumeMatch);
+            try {
+                resumeMatchRepository.save(resumeMatch);
+            } catch (org.springframework.orm.ObjectOptimisticLockingFailureException conflict) {
+                log.warn("Version conflict on final save for ResumeMatch {} -- re-fetching and retrying once", resumeMatch.getId());
+                ResumeMatch fresh = resumeMatchRepository.findById(resumeMatch.getId()).orElseThrow(() -> conflict);
+                fresh.setProviderUsed(providerUsed);
+                fresh.setStatus(ResumeMatchStatus.ANALYZED);
+                fresh.setAnalyzedAt(LocalDateTime.now());
+                fresh.setFailureReason(null);
+                resumeMatchRepository.save(fresh);
+            }
 
             eventProducer.publishResumeAnalyzed(ResumeAnalyzedEvent.builder()
                     .applicationId(applicationId)
@@ -107,7 +118,16 @@ public class ResumeMatchAnalysisPipelineRunner {
             log.warn("Match analysis failed for application {}: {}", applicationId, reason, e);
             resumeMatch.setStatus(ResumeMatchStatus.FAILED);
             resumeMatch.setFailureReason(reason);
-            resumeMatchRepository.save(resumeMatch);
+            try {
+                resumeMatchRepository.save(resumeMatch);
+            } catch (org.springframework.orm.ObjectOptimisticLockingFailureException conflict) {
+                ResumeMatch fresh = resumeMatchRepository.findById(resumeMatch.getId()).orElse(null);
+                if (fresh != null) {
+                    fresh.setStatus(ResumeMatchStatus.FAILED);
+                    fresh.setFailureReason(reason);
+                    resumeMatchRepository.save(fresh);
+                }
+            }
 
             eventProducer.publishResumeAnalysisFailed(ResumeAnalysisFailedEvent.builder()
                     .applicationId(applicationId)
