@@ -130,14 +130,21 @@ jobs:
       # directory itself (rather than its contents) orphans the mount and
       # serves an empty root until the container is recreated.
       - name: Sync frontend build to VM
-        uses: burnett01/rsync-deployments@7.0.1
-        with:
-          switches: -avzr --delete
-          path: cadence_angular/dist/cadence-angular/browser/
-          remote_path: ~/cadence/frontend-dist/
-          remote_host: ${{ secrets.VM_HOST }}
-          remote_user: ${{ secrets.VM_USER }}
-          remote_key: ${{ secrets.VM_SSH_KEY }}
+        # burnett01/rsync-deployments's bundled libssh2 fails to parse this
+        # key ("error in libcrypto") -- a known incompatibility with newer
+        # OpenSSH-format keys. Using the runner's own ssh/rsync (present by
+        # default on ubuntu-latest) sidesteps that Docker image entirely,
+        # matching the Go-based ssh client appleboy/ssh-action already uses
+        # successfully for the step below against the same key.
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.VM_HOST }} >> ~/.ssh/known_hosts
+          rsync -avzr --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            cadence_angular/dist/cadence-angular/browser/ \
+            ${{ secrets.VM_USER }}@${{ secrets.VM_HOST }}:~/cadence/frontend-dist/
 
       - name: Deploy backend (git pull + docker compose up -d --build)
         uses: appleboy/ssh-action@v1.2.0
