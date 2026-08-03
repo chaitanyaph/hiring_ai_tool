@@ -3,7 +3,9 @@ package com.cadence.companyservice.entity;
 import jakarta.persistence.*;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLRestriction;
+import org.hibernate.type.SqlTypes;
 
 import java.io.Serializable;
 import java.util.UUID;
@@ -24,6 +26,7 @@ public class Company extends BaseAuditEntity implements Serializable {
     // other microservice. Assigned explicitly by whatever creates the row
     // (see CompanyEventConsumer#onUserRegistered).
     @Id
+    @JdbcTypeCode(SqlTypes.CHAR)
     private UUID id;
 
     @Column(name = "company_name", nullable = false, length = 150)
