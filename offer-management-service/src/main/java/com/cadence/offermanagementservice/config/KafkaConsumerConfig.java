@@ -10,7 +10,6 @@ import org.springframework.kafka.core.ConsumerFactory;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.support.converter.JsonMessageConverter;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
-import org.springframework.kafka.support.serializer.JsonDeserializer;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -30,9 +29,13 @@ public class KafkaConsumerConfig {
         config.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
         config.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
         config.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class);
-        config.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
-        config.put(JsonDeserializer.TRUSTED_PACKAGES, "com.cadence.offermanagementservice.kafka.event");
-        config.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, false);
+        // The Kafka-level deserializer only needs to hand back the raw JSON string --
+        // JsonMessageConverter (below) does the actual type-specific conversion per
+        // @KafkaListener method, inferred from that method's declared parameter type.
+        // (Wrapping a JsonDeserializer here instead double-converts: the listener
+        // container tries to run the JsonMessageConverter over an already-deserialized
+        // POJO, which throws "Only String, Bytes, or byte[] supported".)
+        config.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, StringDeserializer.class);
         return new DefaultKafkaConsumerFactory<>(config);
     }
 
