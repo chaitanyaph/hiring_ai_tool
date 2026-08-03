@@ -98,7 +98,11 @@ public class ResumeMatchAnalysisPipelineRunner {
                     .occurredAt(LocalDateTime.now())
                     .build());
 
-        } catch (Exception e) {
+        } catch (Throwable e) {
+            // Throwable, not Exception: an OutOfMemoryError (or any other Error) here would
+            // otherwise skip this whole block silently -- the async thread just dies with no
+            // log line and the row sits at ANALYZING/AWAITING_PARSE forever with no failure
+            // recorded at all.
             String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
             log.warn("Match analysis failed for application {}: {}", applicationId, reason, e);
             resumeMatch.setStatus(ResumeMatchStatus.FAILED);

@@ -23,6 +23,20 @@
 x-jvm-small: &jvm-small
   JAVA_OPTS: "-Xms96m -Xmx320m -XX:MaxMetaspaceSize=224m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss256k"
 
+# For the one service whose per-request memory profile is genuinely
+# different from the rest: resume-parser-service holds full resume text
+# plus a Gemini prompt built from it, plus the parsed JSON response, all
+# in heap at once, and does so on independently-dispatched @Async threads
+# that can overlap. Under jvm-small's 320m heap this hit a silent
+# OutOfMemoryError -- silent because Error, unlike Exception, isn't
+# caught by the pipeline's `catch (Exception e)`, so the async thread
+# just died with no log line and the resume sat at EXTRACTING_TEXT
+# forever. mem_limit for this service is raised to match (see the
+# x-jvm-small comment above for why the container cap must sit
+# comfortably above Xmx+Metaspace).
+x-jvm-medium: &jvm-medium
+  JAVA_OPTS: "-Xms128m -Xmx576m -XX:MaxMetaspaceSize=224m -XX:+UseSerialGC -XX:TieredStopAtLevel=1 -Xss256k"
+
 x-service-common: &service-common
   DB_USERNAME: root
   DB_PASSWORD: ${MYSQL_ROOT_PASSWORD}
@@ -271,12 +285,12 @@ services:
   resume-parser-service:
     build: ./resume-parser-service
     restart: unless-stopped
-    mem_limit: 768m
+    mem_limit: 1024m
     depends_on:
       mysql: { condition: service_healthy }
       eureka-server: { condition: service_healthy }
     environment:
-      <<: [*jvm-small, *service-common]
+      <<: [*jvm-medium, *service-common]
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/resume_parser_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC&createDatabaseIfNotExist=true
       RESUME_PARSER_PROVIDER: ${RESUME_PARSER_PROVIDER}
       GEMINI_API_KEY: ${GEMINI_API_KEY}

@@ -128,7 +128,12 @@ public class ResumeParsingPipelineRunner {
             // this resumeId now that parsing has actually finished.
             resumeMatchAnalysisService.onResumeParsed(resumeId);
 
-        } catch (Exception e) {
+        } catch (Throwable e) {
+            // Throwable, not Exception: an OutOfMemoryError (or any other Error) here would
+            // otherwise skip this whole block silently -- the async thread just dies with no
+            // log line and the row sits at EXTRACTING_TEXT/PARSING_FIELDS forever with no
+            // failure recorded at all. (This is exactly what happened before the JVM heap
+            // for this service was sized up -- see docker-compose.yml's jvm-medium comment.)
             String reason = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
             log.warn("Parsing failed for resume {}: {}", resumeId, reason, e);
             parsedResume.setStatus(ParsingStatus.FAILED);
