@@ -65,10 +65,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node 20
+      - name: Set up Node 24
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          # Angular CLI 22 requires Node >=22.22.3/24.15.0/26.0.0 -- Node 20
+          # (the runner's previous pin) fails ng build's own version check.
+          node-version: '24'
           cache: npm
           cache-dependency-path: cadence_angular/package-lock.json
 
@@ -96,10 +98,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node 20
+      - name: Set up Node 24
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: npm
           cache-dependency-path: cadence_angular/package-lock.json
 

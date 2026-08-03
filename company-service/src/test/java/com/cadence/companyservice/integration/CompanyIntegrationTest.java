@@ -46,12 +46,15 @@ class CompanyIntegrationTest {
     // property-driven auto-configuration (that property only applies when no
     // user-defined CacheManager bean exists) -- so without this override,
     // every @CacheEvict/@Cacheable hits real Redis, which isn't available in
-    // CI. @Primary here overrides it with an in-memory cache for the test.
+    // CI. Named differently from RedisConfig's "cacheManager" bean (Spring
+    // forbids two bean definitions sharing a name unless overriding is
+    // explicitly enabled) -- @Primary instead resolves the by-type ambiguity
+    // so this in-memory cache wins wherever CacheManager is autowired.
     @TestConfiguration
     static class TestCacheConfig {
         @Bean
         @Primary
-        public CacheManager cacheManager() {
+        public CacheManager testCacheManager() {
             return new ConcurrentMapCacheManager(
                     RedisConfig.COMPANY_CACHE, RedisConfig.DEPARTMENT_LIST_CACHE, RedisConfig.OFFICE_LIST_CACHE);
         }
