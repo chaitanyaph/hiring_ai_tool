@@ -6,6 +6,7 @@ import { ApiResponse, PagedResponse } from '../models/api-response.model';
 import {
   AssignJobRequest,
   CandidateJobBrowseCriteria,
+  CandidateJobDetailResponse,
   CandidateJobSummaryResponse,
   JobBasicInfoRequest,
   JobCountsResponse,
@@ -124,5 +125,9 @@ export class JobService {
       }
     }
     return this.http.get<ApiResponse<PagedResponse<CandidateJobSummaryResponse>>>(`${BASE_URL}/jobs/public`, { params });
+  }
+
+  getPublicJobDetail(jobId: string): Observable<ApiResponse<CandidateJobDetailResponse>> {
+    return this.http.get<ApiResponse<CandidateJobDetailResponse>>(`${BASE_URL}/jobs/public/${jobId}`);
   }
 }

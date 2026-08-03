@@ -2,6 +2,7 @@ package com.cadence.jobservice.service;
 
 import com.cadence.jobservice.constant.WorkType;
 import com.cadence.jobservice.dto.request.*;
+import com.cadence.jobservice.dto.response.CandidateJobDetailResponse;
 import com.cadence.jobservice.dto.response.CandidateJobSummaryResponse;
 import com.cadence.jobservice.dto.response.DashboardResponse;
 import com.cadence.jobservice.dto.response.JobCountsResponse;
@@ -45,4 +46,7 @@ public interface JobService {
 
     /** Candidate-facing browse -- published jobs across every company, not scoped to one. */
     PagedResponse<CandidateJobSummaryResponse> browsePublicJobs(String title, String location, WorkType workType, Pageable pageable);
+
+    /** Candidate-facing single job detail -- any non-draft status (so Closed/Expired still render), not scoped to one company. */
+    CandidateJobDetailResponse getPublicJobDetail(UUID jobId);
 }

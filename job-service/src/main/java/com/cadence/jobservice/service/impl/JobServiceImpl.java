@@ -591,6 +591,58 @@ public class JobServiceImpl implements JobService {
         return PagedResponse.from(mapped);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public CandidateJobDetailResponse getPublicJobDetail(UUID jobId) {
+        Job job = jobRepository.findById(jobId)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.JOB_NOT_FOUND, "Job not found: " + jobId));
+        if (job.getStatus() == JobStatus.DRAFT) {
+            // Never reveal that an unpublished draft exists -- same 404 a truly-missing job would return.
+            throw new ResourceNotFoundException(ErrorCode.JOB_NOT_FOUND, "Job not found: " + jobId);
+        }
+
+        JobRequirements requirements = jobRequirementsRepository.findByJobId(job.getId()).orElse(null);
+        List<SkillResponse> skills = jobSkillRepository.findAllByJobId(job.getId()).stream()
+                .map(skillMapper::toResponse).toList();
+        List<String> benefits = jobBenefitRepository.findAllByJobId(job.getId()).stream()
+                .map(JobBenefit::getBenefitText).toList();
+
+        JobRequirementsResponse requirementsResponse = JobRequirementsResponse.builder()
+                .minExperienceYears(requirements != null ? requirements.getMinExperienceYears() : null)
+                .maxExperienceYears(requirements != null ? requirements.getMaxExperienceYears() : null)
+                .skills(skills)
+                .education(requirements != null ? requirements.getEducation() : null)
+                .certifications(requirements != null ? requirements.getCertifications() : null)
+                .languages(requirements != null ? requirements.getLanguages() : null)
+                .minSalary(requirements != null ? requirements.getMinSalary() : null)
+                .maxSalary(requirements != null ? requirements.getMaxSalary() : null)
+                .salaryCurrency(requirements != null ? requirements.getSalaryCurrency() : null)
+                .noticePeriodDays(requirements != null ? requirements.getNoticePeriodDays() : null)
+                .responsibilities(requirements != null ? requirements.getResponsibilities() : null)
+                .benefits(benefits)
+                .build();
+
+        return CandidateJobDetailResponse.builder()
+                .id(job.getId())
+                .title(job.getTitle())
+                .companyId(job.getCompanyId())
+                .companyName(resolveCompanyName(job.getCompanyId(), new HashMap<>()))
+                .departmentName(resolveDepartmentName(job.getDepartmentId(), new HashMap<>()))
+                .location(job.getLocation())
+                .workType(job.getWorkType())
+                .employmentType(job.getEmploymentType())
+                .numberOfOpenings(job.getNumberOfOpenings())
+                .applicationDeadline(job.getApplicationDeadline())
+                .status(job.getStatus())
+                .descriptionHtml(jobDescriptionRepository.findByJobId(job.getId())
+                        .map(JobDescription::getDescriptionHtml).orElse(null))
+                .requirements(requirementsResponse)
+                .publishedAt(job.getPublishedAt())
+                .closedAt(job.getClosedAt())
+                .archivedAt(job.getArchivedAt())
+                .build();
+    }
+
     private String resolveCompanyName(UUID companyId, Map<UUID, String> cache) {
         if (companyId == null) {
             return null;

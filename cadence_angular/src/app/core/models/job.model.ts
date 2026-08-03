@@ -209,3 +209,22 @@ export interface CandidateJobSummaryResponse {
   salaryCurrency: string | null;
   publishedAt: string | null;
 }
+
+export interface CandidateJobDetailResponse {
+  id: string;
+  title: string;
+  companyId: string;
+  companyName: string | null;
+  departmentName: string | null;
+  location: string | null;
+  workType: WorkType | null;
+  employmentType: EmploymentType | null;
+  numberOfOpenings: number | null;
+  applicationDeadline: string | null;
+  status: JobStatus;
+  descriptionHtml: string | null;
+  requirements: JobRequirementsResponse | null;
+  publishedAt: string | null;
+  closedAt: string | null;
+  archivedAt: string | null;
+}

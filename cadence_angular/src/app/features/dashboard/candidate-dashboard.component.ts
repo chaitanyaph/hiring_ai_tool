@@ -1,7 +1,9 @@
-import { Component, computed, OnInit } from '@angular/core';
+import { Component, computed, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AppStateService } from '../../core/services/app-state.service';
+import { JobService } from '../../core/services/job.service';
+import { CandidateJobSummaryResponse } from '../../core/models/job.model';
 
 @Component({
   selector: 'app-candidate-dashboard',
@@ -118,16 +120,22 @@ import { AppStateService } from '../../core/services/app-state.service';
           </div>
         </div>
 
-        <!-- Suggested jobs: left static/mock -- no recommendation endpoint exists on any
-             service yet, and job-service has no candidate-safe browse endpoint either
-             (see Module 3 gap notes), so there's no real data source to bind this to. -->
+        <!-- No dedicated recommendation/matching endpoint exists, so this shows the most
+             recently published open roles rather than a personalized ranking. -->
         <div class="card">
           <div class="card-head">
             <h2>Suggested jobs</h2>
             <a class="card-link" (click)="goToJobs()">Browse all</a>
           </div>
           <div class="list-card">
-            <p style="font-size:12.5px; color:var(--ink-soft); padding:8px 0;">No suggestions yet. <a class="card-link" (click)="goToJobs()">Browse all open roles</a> to get started.</p>
+            <div class="interview-item" *ngFor="let job of suggestedJobs()" (click)="goToJobDetail(job.id)" style="cursor:pointer;">
+              <div class="avatar">{{ (job.companyName || '??').slice(0, 2).toUpperCase() }}</div>
+              <div class="meta">
+                <div class="who">{{ job.title }}</div>
+                <div class="role">{{ job.companyName || 'Unknown company' }} · {{ job.location || 'Not specified' }}</div>
+              </div>
+            </div>
+            <p style="font-size:12.5px; color:var(--ink-soft); padding:8px 0;" *ngIf="!suggestedJobs().length">No open roles yet. <a class="card-link" (click)="goToJobs()">Browse all open roles</a> to get started.</p>
           </div>
         </div>
 
@@ -160,10 +168,11 @@ import { AppStateService } from '../../core/services/app-state.service';
   styles: []
 })
 export class CandidateDashboardComponent implements OnInit {
-  constructor(public state: AppStateService, public router: Router) {}
+  constructor(public state: AppStateService, public router: Router, private jobService: JobService) {}
 
   profile = computed(() => this.state.candidateProfile());
   dashboard = computed(() => this.state.candidateDashboard());
+  suggestedJobs = signal<CandidateJobSummaryResponse[]>([]);
 
   firstName = computed(() => this.profile()?.fullName?.split(' ')[0] ?? this.state.currentUser()?.name?.split(' ')[0] ?? 'there');
 
@@ -173,6 +182,10 @@ export class CandidateDashboardComponent implements OnInit {
   ngOnInit() {
     this.state.loadCandidateProfile();
     this.state.loadCandidateDashboard();
+    this.jobService.browsePublicJobs({}, 0, 3).subscribe({
+      next: (res) => this.suggestedJobs.set(res.data.content),
+      error: () => {},
+    });
   }
 
   goToJobs() {

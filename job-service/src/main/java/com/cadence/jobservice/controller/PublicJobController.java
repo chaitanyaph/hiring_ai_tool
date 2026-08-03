@@ -2,6 +2,7 @@ package com.cadence.jobservice.controller;
 
 import com.cadence.jobservice.constant.WorkType;
 import com.cadence.jobservice.dto.response.ApiResponse;
+import com.cadence.jobservice.dto.response.CandidateJobDetailResponse;
 import com.cadence.jobservice.dto.response.CandidateJobSummaryResponse;
 import com.cadence.jobservice.dto.response.PagedResponse;
 import com.cadence.jobservice.service.JobService;
@@ -13,6 +14,8 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.UUID;
 
 /**
  * Separate from JobController on purpose: that controller is
@@ -37,5 +40,11 @@ public class PublicJobController {
             @RequestParam(required = false) WorkType workType,
             @PageableDefault(size = 100, sort = "publishedAt") Pageable pageable) {
         return ResponseEntity.ok(ApiResponse.ok("OK", jobService.browsePublicJobs(title, location, workType, pageable)));
+    }
+
+    @GetMapping("/public/{id}")
+    @Operation(summary = "Get a single job's detail", description = "Any non-draft status -- Published/Paused/Closed/Archived/Expired all render with the matching status badge")
+    public ResponseEntity<ApiResponse<CandidateJobDetailResponse>> getDetail(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.ok("OK", jobService.getPublicJobDetail(id)));
     }
 }
