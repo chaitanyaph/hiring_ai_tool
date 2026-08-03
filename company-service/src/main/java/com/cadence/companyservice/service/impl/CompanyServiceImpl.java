@@ -41,6 +41,7 @@ public class CompanyServiceImpl implements CompanyService {
         }
 
         Company company = Company.builder()
+                .id(UUID.randomUUID())
                 .companyName(request.getCompanyName().trim())
                 .companySlug(generateUniqueSlug(request.getCompanyName()))
                 .industry(request.getIndustry())
