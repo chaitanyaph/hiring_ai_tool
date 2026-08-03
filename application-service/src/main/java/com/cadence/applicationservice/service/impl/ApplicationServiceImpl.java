@@ -91,9 +91,6 @@ public class ApplicationServiceImpl implements ApplicationService, ApplicationLi
         }
 
         CandidateDto candidateProfile = fetchCandidateOrThrow(candidate.getUserId());
-        if (!candidateProfile.isResumeUploaded()) {
-            throw new ApplicationValidationException(ErrorCode.RESUME_NOT_FOUND, "Upload a resume before applying");
-        }
         int completion = candidateProfile.getProfileCompletionPercent() == null ? 0 : candidateProfile.getProfileCompletionPercent();
         if (completion < minProfileCompletionPercent) {
             throw new ApplicationValidationException(ErrorCode.CANDIDATE_PROFILE_INCOMPLETE,

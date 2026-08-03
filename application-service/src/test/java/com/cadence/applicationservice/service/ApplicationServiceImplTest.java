@@ -140,18 +140,6 @@ class ApplicationServiceImplTest {
     }
 
     @Test
-    void apply_shouldThrow_whenResumeNotUploaded() {
-        when(applicationRepository.existsByCandidateIdAndJobId(candidate.getUserId(), jobId)).thenReturn(false);
-        when(jobServiceClient.getJob(jobId)).thenReturn(new FeignApiResponse<>(true, "OK", publishedJob()));
-        CandidateDto noResume = completeCandidate();
-        noResume.setResumeUploaded(false);
-        when(candidateServiceClient.getCandidateSummary(candidate.getUserId())).thenReturn(new FeignApiResponse<>(true, "OK", noResume));
-
-        assertThatThrownBy(() -> applicationService.apply(candidate, ApplyRequest.builder().jobId(jobId).build()))
-                .isInstanceOf(ApplicationValidationException.class);
-    }
-
-    @Test
     void apply_shouldThrow_whenProfileIncomplete() {
         when(applicationRepository.existsByCandidateIdAndJobId(candidate.getUserId(), jobId)).thenReturn(false);
         when(jobServiceClient.getJob(jobId)).thenReturn(new FeignApiResponse<>(true, "OK", publishedJob()));
