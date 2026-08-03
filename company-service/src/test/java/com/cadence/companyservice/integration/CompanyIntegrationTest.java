@@ -1,5 +1,6 @@
 package com.cadence.companyservice.integration;
 
+import com.cadence.companyservice.config.RedisConfig;
 import com.cadence.companyservice.dto.request.CreateCompanyRequest;
 import com.cadence.companyservice.dto.request.DepartmentRequest;
 import com.cadence.companyservice.kafka.producer.CompanyEventProducer;
@@ -8,7 +9,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.cache.CacheManager;
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -34,6 +40,22 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @Testcontainers
 class CompanyIntegrationTest {
+
+    // RedisConfig defines an explicit @Bean CacheManager wired to a real Redis
+    // connection, which always wins over Spring Boot's spring.cache.type
+    // property-driven auto-configuration (that property only applies when no
+    // user-defined CacheManager bean exists) -- so without this override,
+    // every @CacheEvict/@Cacheable hits real Redis, which isn't available in
+    // CI. @Primary here overrides it with an in-memory cache for the test.
+    @TestConfiguration
+    static class TestCacheConfig {
+        @Bean
+        @Primary
+        public CacheManager cacheManager() {
+            return new ConcurrentMapCacheManager(
+                    RedisConfig.COMPANY_CACHE, RedisConfig.DEPARTMENT_LIST_CACHE, RedisConfig.OFFICE_LIST_CACHE);
+        }
+    }
 
     @Container
     static MySQLContainer<?> mysql = new MySQLContainer<>("mysql:8.0")

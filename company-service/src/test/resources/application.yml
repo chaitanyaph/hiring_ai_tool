@@ -11,8 +11,6 @@ spring:
       hibernate:
         type:
           preferred_uuid_jdbc_type: CHAR
-  cache:
-    type: simple
   autoconfigure:
     exclude:
       - org.springframework.cloud.netflix.eureka.EurekaClientAutoConfiguration
