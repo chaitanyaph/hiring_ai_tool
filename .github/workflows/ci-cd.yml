@@ -74,7 +74,15 @@ jobs:
 
       - name: npm install
         working-directory: cadence_angular
-        run: npm install
+        # package-lock.json is generated on Windows dev machines and only records
+        # the win32 rollup/esbuild native binaries as resolved -- npm (both `ci`
+        # and plain `install`) treats an existing lockfile's platform-specific
+        # optionalDependency resolutions as authoritative rather than
+        # re-resolving them per OS, so either command hard-fails on Linux with
+        # EBADPLATFORM instead of just installing the linux-x64 variant. Dropping
+        # the lockfile here forces a fresh resolve against the registry, which
+        # correctly picks the platform-matching binaries.
+        run: rm -f package-lock.json && npm install
 
       - name: Production build
         working-directory: cadence_angular
@@ -97,7 +105,15 @@ jobs:
 
       - name: npm install
         working-directory: cadence_angular
-        run: npm install
+        # package-lock.json is generated on Windows dev machines and only records
+        # the win32 rollup/esbuild native binaries as resolved -- npm (both `ci`
+        # and plain `install`) treats an existing lockfile's platform-specific
+        # optionalDependency resolutions as authoritative rather than
+        # re-resolving them per OS, so either command hard-fails on Linux with
+        # EBADPLATFORM instead of just installing the linux-x64 variant. Dropping
+        # the lockfile here forces a fresh resolve against the registry, which
+        # correctly picks the platform-matching binaries.
+        run: rm -f package-lock.json && npm install
 
       - name: Production build
         working-directory: cadence_angular
