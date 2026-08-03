@@ -553,6 +553,59 @@ public class JobServiceImpl implements JobService {
                 .build();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public PagedResponse<CandidateJobSummaryResponse> browsePublicJobs(
+            String title, String location, WorkType workType, Pageable pageable) {
+        Specification<Job> spec = Specification.where(JobSpecifications.status(JobStatus.PUBLISHED))
+                .and(JobSpecifications.titleContains(title))
+                .and(JobSpecifications.locationContains(location))
+                .and(JobSpecifications.workType(workType));
+
+        Page<Job> page = jobRepository.findAll(spec, pageable);
+        Map<UUID, String> companyNameCache = new HashMap<>();
+        Map<UUID, String> departmentNameCache = new HashMap<>();
+
+        Page<CandidateJobSummaryResponse> mapped = page.map(job -> {
+            JobRequirements requirements = jobRequirementsRepository.findByJobId(job.getId()).orElse(null);
+            List<String> skills = jobSkillRepository.findAllByJobId(job.getId()).stream()
+                    .map(JobSkill::getSkillName).toList();
+
+            return CandidateJobSummaryResponse.builder()
+                    .id(job.getId())
+                    .title(job.getTitle())
+                    .companyId(job.getCompanyId())
+                    .companyName(resolveCompanyName(job.getCompanyId(), companyNameCache))
+                    .departmentName(resolveDepartmentName(job.getDepartmentId(), departmentNameCache))
+                    .location(job.getLocation())
+                    .workType(job.getWorkType())
+                    .employmentType(job.getEmploymentType())
+                    .skills(skills)
+                    .minSalary(requirements != null ? requirements.getMinSalary() : null)
+                    .maxSalary(requirements != null ? requirements.getMaxSalary() : null)
+                    .salaryCurrency(requirements != null ? requirements.getSalaryCurrency() : null)
+                    .publishedAt(job.getPublishedAt())
+                    .build();
+        });
+
+        return PagedResponse.from(mapped);
+    }
+
+    private String resolveCompanyName(UUID companyId, Map<UUID, String> cache) {
+        if (companyId == null) {
+            return null;
+        }
+        return cache.computeIfAbsent(companyId, id -> {
+            try {
+                var response = companyServiceClient.getCompany(id);
+                return response != null && response.getData() != null ? response.getData().getCompanyName() : null;
+            } catch (Exception e) {
+                log.warn("Could not resolve company name for {}: {}", id, e.getMessage());
+                return null;
+            }
+        });
+    }
+
     // ------------------------------------------------------------------
     // Internal helpers
     // ------------------------------------------------------------------

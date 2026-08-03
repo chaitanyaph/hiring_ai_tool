@@ -187,3 +187,25 @@ export interface JobSearchCriteria {
   createdFrom?: string;
   createdTo?: string;
 }
+
+export interface CandidateJobBrowseCriteria {
+  title?: string;
+  location?: string;
+  workType?: WorkType;
+}
+
+export interface CandidateJobSummaryResponse {
+  id: string;
+  title: string;
+  companyId: string;
+  companyName: string | null;
+  departmentName: string | null;
+  location: string | null;
+  workType: WorkType | null;
+  employmentType: EmploymentType | null;
+  skills: string[];
+  minSalary: number | null;
+  maxSalary: number | null;
+  salaryCurrency: string | null;
+  publishedAt: string | null;
+}

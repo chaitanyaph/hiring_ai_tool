@@ -5,6 +5,8 @@ import { environment } from '../../../environments/environment';
 import { ApiResponse, PagedResponse } from '../models/api-response.model';
 import {
   AssignJobRequest,
+  CandidateJobBrowseCriteria,
+  CandidateJobSummaryResponse,
   JobBasicInfoRequest,
   JobCountsResponse,
   JobDashboardResponse,
@@ -112,5 +114,15 @@ export class JobService {
 
   deleteTemplate(templateId: string): Observable<ApiResponse<void>> {
     return this.http.delete<ApiResponse<void>>(`${BASE_URL}/job-templates/${templateId}`);
+  }
+
+  browsePublicJobs(criteria: CandidateJobBrowseCriteria = {}, page = 0, size = 100): Observable<ApiResponse<PagedResponse<CandidateJobSummaryResponse>>> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    for (const [key, value] of Object.entries(criteria)) {
+      if (value !== undefined && value !== null && value !== '') {
+        params = params.set(key, String(value));
+      }
+    }
+    return this.http.get<ApiResponse<PagedResponse<CandidateJobSummaryResponse>>>(`${BASE_URL}/jobs/public`, { params });
   }
 }

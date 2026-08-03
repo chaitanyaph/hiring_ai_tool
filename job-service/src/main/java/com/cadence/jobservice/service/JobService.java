@@ -1,6 +1,8 @@
 package com.cadence.jobservice.service;
 
+import com.cadence.jobservice.constant.WorkType;
 import com.cadence.jobservice.dto.request.*;
+import com.cadence.jobservice.dto.response.CandidateJobSummaryResponse;
 import com.cadence.jobservice.dto.response.DashboardResponse;
 import com.cadence.jobservice.dto.response.JobCountsResponse;
 import com.cadence.jobservice.dto.response.JobDetailResponse;
@@ -40,4 +42,7 @@ public interface JobService {
     PagedResponse<JobSummaryResponse> searchJobs(JobSearchCriteria criteria, Pageable pageable, CurrentUser currentUser);
     JobCountsResponse getCounts(CurrentUser currentUser);
     DashboardResponse getDashboard(CurrentUser currentUser);
+
+    /** Candidate-facing browse -- published jobs across every company, not scoped to one. */
+    PagedResponse<CandidateJobSummaryResponse> browsePublicJobs(String title, String location, WorkType workType, Pageable pageable);
 }

@@ -2,6 +2,7 @@ package com.cadence.jobservice.repository;
 
 import com.cadence.jobservice.constant.EmploymentType;
 import com.cadence.jobservice.constant.JobStatus;
+import com.cadence.jobservice.constant.WorkType;
 import com.cadence.jobservice.entity.Job;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -44,6 +45,12 @@ public final class JobSpecifications {
         return (root, query, cb) -> status == null
                 ? cb.conjunction()
                 : cb.equal(root.get("status"), status);
+    }
+
+    public static Specification<Job> workType(WorkType workType) {
+        return (root, query, cb) -> workType == null
+                ? cb.conjunction()
+                : cb.equal(root.get("workType"), workType);
     }
 
     public static Specification<Job> employmentType(EmploymentType employmentType) {

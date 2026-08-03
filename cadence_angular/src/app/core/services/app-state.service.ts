@@ -622,9 +622,7 @@ export class AppStateService {
     this.candidateService.listSavedJobs().subscribe({
       next: (res) => this.savedJobIds.set(new Set(res.data.map((s) => s.jobId))),
       error: () => {
-        /* Browse-jobs currently renders local mock jobs with non-UUID ids (job-service
-           has no candidate-safe browse endpoint yet -- see Module 3 gap), so a failed
-           lookup here is expected until that's resolved and is not worth surfacing. */
+        /* Non-fatal: browse-jobs just renders with nothing pre-marked as saved. */
       },
     });
   }
