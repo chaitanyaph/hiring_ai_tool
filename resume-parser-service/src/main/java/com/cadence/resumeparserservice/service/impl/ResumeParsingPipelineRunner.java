@@ -102,10 +102,14 @@ public class ResumeParsingPipelineRunner {
             String cleanedText = textCleaner.clean(rawText);
             writeLog(parsedResume, LogLevel.INFO, "Text extracted (" + cleanedText.length() + " characters)");
 
+            log.info("DIAG resume {} -- about to updateStatus(PARSING_FIELDS)", resumeId);
             updateStatus(parsedResume, ParsingStatus.PARSING_FIELDS);
+            log.info("DIAG resume {} -- updateStatus(PARSING_FIELDS) returned", resumeId);
             ResumeParserProvider provider = providerFactory.getActiveProvider();
+            log.info("DIAG resume {} -- got provider {}, about to call parse()", resumeId, provider.getProviderName());
             writeLog(parsedResume, LogLevel.INFO, "Sending resume text to " + provider.getProviderName());
             ParsedResumeData data = provider.parse(cleanedText);
+            log.info("DIAG resume {} -- provider.parse() returned", resumeId);
             parsedDataValidator.validate(data);
             writeLog(parsedResume, LogLevel.INFO, "Structured data received and validated");
 
