@@ -43,8 +43,17 @@ public class ResumeParsingServiceImpl implements ResumeParsingService {
     @Value("${resume-parser.idempotency.lock-ttl-seconds:300}")
     private long lockTtlSeconds;
 
+    // Deliberately NOT @Transactional: this method hands off to an @Async
+    // pipeline runner that re-reads the ParsedResume row by id on its own
+    // thread. Wrapping this method in a transaction meant that read could
+    // race the enclosing transaction's commit -- the async thread's
+    // findById() sometimes ran before this method's own INSERT/UPDATE was
+    // actually visible, came back empty, and Optional#ifPresent() silently
+    // did nothing: no exception, no log, the row just sat at QUEUED forever.
+    // Each repository .save() below still commits atomically on its own
+    // (Spring Data's repository proxy is transactional per-call); they just
+    // don't need to share ONE transaction with each other.
     @Override
-    @Transactional
     public void processResume(UUID resumeId, UUID candidateId, String checksum) {
         if (parsedResumeRepository.existsByResumeIdAndChecksumAndStatus(resumeId, checksum, ParsingStatus.PARSED)) {
             log.info("Resume {} already parsed with checksum {} -- skipping (duplicate parsing prevention)", resumeId, checksum);
@@ -78,8 +87,9 @@ public class ResumeParsingServiceImpl implements ResumeParsingService {
         pipelineRunner.run(parsedResume.getId(), lockKey);
     }
 
+    // Same reasoning as processResume(): not @Transactional, so the row is
+    // actually committed before the @Async pipeline runner tries to read it.
     @Override
-    @Transactional
     public void retryParsing(UUID resumeId) {
         ParsedResume parsedResume = parsedResumeRepository.findByResumeId(resumeId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESUME_NOT_FOUND,

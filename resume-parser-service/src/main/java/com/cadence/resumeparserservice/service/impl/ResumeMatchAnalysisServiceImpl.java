@@ -18,7 +18,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.util.List;
@@ -52,8 +51,14 @@ public class ResumeMatchAnalysisServiceImpl implements ResumeMatchAnalysisServic
     @Value("${resume-parser.idempotency.lock-ttl-seconds:300}")
     private long lockTtlSeconds;
 
+    // Deliberately NOT @Transactional: advanceOrQueue() below can hand off to
+    // an @Async pipeline runner that re-reads this ResumeMatch row by id on
+    // its own thread. Wrapping the whole method in a transaction let that
+    // read race this method's own not-yet-committed write -- the async
+    // thread would find nothing and silently do nothing, leaving the row
+    // stuck at ANALYZING (or never reached) with no error at all. Each
+    // repository .save() still commits atomically on its own.
     @Override
-    @Transactional
     public void handleApplicationCreated(ApplicationCreatedEvent event) {
         if (resumeMatchRepository.findByApplicationId(event.getApplicationId()).isPresent()) {
             log.info("ResumeMatch already exists for application {} -- ignoring duplicate ApplicationCreated delivery", event.getApplicationId());
@@ -76,8 +81,9 @@ public class ResumeMatchAnalysisServiceImpl implements ResumeMatchAnalysisServic
         advanceOrQueue(resumeMatch, event.getResumeId());
     }
 
+    // Same reasoning as handleApplicationCreated(): not @Transactional, so
+    // advanceOrQueue()'s async hand-off always sees a committed row.
     @Override
-    @Transactional
     public void recalculate(UUID applicationId) {
         ResumeMatch resumeMatch = resumeMatchRepository.findByApplicationId(applicationId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.MATCH_NOT_FOUND, "No resume match found for application " + applicationId));
@@ -102,8 +108,9 @@ public class ResumeMatchAnalysisServiceImpl implements ResumeMatchAnalysisServic
         advanceOrQueue(resumeMatch, resumeId);
     }
 
+    // Same reasoning as handleApplicationCreated(): not @Transactional, so
+    // advanceOrQueue()'s async hand-off always sees a committed row.
     @Override
-    @Transactional
     public void onResumeParsed(UUID resumeId) {
         List<ResumeMatch> awaiting = resumeMatchRepository.findAllByResumeIdAndStatus(resumeId, ResumeMatchStatus.AWAITING_PARSE);
         for (ResumeMatch resumeMatch : awaiting) {
