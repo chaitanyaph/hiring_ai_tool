@@ -33,8 +33,8 @@ export class ApplicationService {
 
   // ---- Candidate-facing ----
 
-  apply(jobId: string): Observable<ApiResponse<ApplicationResponse>> {
-    return this.http.post<ApiResponse<ApplicationResponse>>(BASE_URL, { jobId });
+  apply(jobId: string, resumeId: string): Observable<ApiResponse<ApplicationResponse>> {
+    return this.http.post<ApiResponse<ApplicationResponse>>(BASE_URL, { jobId, resumeId });
   }
 
   listMyApplications(): Observable<ApiResponse<ApplicationResponse[]>> {

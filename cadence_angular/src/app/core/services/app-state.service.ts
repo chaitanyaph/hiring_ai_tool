@@ -1412,8 +1412,8 @@ export class AppStateService {
 
   /** Returns the Observable (rather than subscribing internally) so callers -- e.g. the
    * job-detail "Apply now" button -- can navigate only once the application actually succeeds. */
-  applyToJob(jobId: string) {
-    return this.applicationService.apply(jobId).pipe(
+  applyToJob(jobId: string, resumeId: string) {
+    return this.applicationService.apply(jobId, resumeId).pipe(
       tap((res) => {
         this.candidateApplications.update((list) => [res.data, ...list]);
         this.showToast('Application submitted successfully!');

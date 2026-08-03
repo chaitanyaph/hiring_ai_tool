@@ -2,9 +2,11 @@ package com.cadence.applicationservice.service;
 
 import com.cadence.applicationservice.client.CandidateServiceClient;
 import com.cadence.applicationservice.client.JobServiceClient;
+import com.cadence.applicationservice.client.ResumeServiceClient;
 import com.cadence.applicationservice.client.dto.CandidateDto;
 import com.cadence.applicationservice.client.dto.FeignApiResponse;
 import com.cadence.applicationservice.client.dto.JobDto;
+import com.cadence.applicationservice.client.dto.ResumeDto;
 import com.cadence.applicationservice.constant.ApplicationStatus;
 import com.cadence.applicationservice.constant.InterviewType;
 import com.cadence.applicationservice.constant.PlatformRole;
@@ -54,6 +56,7 @@ class ApplicationServiceImplTest {
     @Mock private ApplicationEventRepository eventRepository;
     @Mock private JobServiceClient jobServiceClient;
     @Mock private CandidateServiceClient candidateServiceClient;
+    @Mock private ResumeServiceClient resumeServiceClient;
     @Mock private ApplicationMapper applicationMapper;
     @Mock private ApplicationEventProducer eventProducer;
     @Mock private CacheManager cacheManager;
@@ -162,9 +165,16 @@ class ApplicationServiceImplTest {
 
     @Test
     void apply_shouldSucceed_andAutoAdvanceToResumeParsing() {
+        UUID resumeId = UUID.randomUUID();
+        ResumeDto resume = new ResumeDto();
+        resume.setId(resumeId);
+        resume.setCandidateId(candidate.getUserId());
+        resume.setStatus("ACTIVE");
+
         when(applicationRepository.existsByCandidateIdAndJobId(candidate.getUserId(), jobId)).thenReturn(false);
         when(jobServiceClient.getJob(jobId)).thenReturn(new FeignApiResponse<>(true, "OK", publishedJob()));
         when(candidateServiceClient.getCandidateSummary(candidate.getUserId())).thenReturn(new FeignApiResponse<>(true, "OK", completeCandidate()));
+        when(resumeServiceClient.getResume(resumeId)).thenReturn(new FeignApiResponse<>(true, "OK", resume));
         when(applicationRepository.save(any(Application.class))).thenAnswer(inv -> {
             Application a = inv.getArgument(0);
             if (a.getId() == null) a.setId(UUID.randomUUID());
@@ -172,13 +182,33 @@ class ApplicationServiceImplTest {
         });
         when(applicationMapper.toResponse(any(Application.class))).thenReturn(ApplicationResponse.builder().build());
 
-        applicationService.apply(candidate, ApplyRequest.builder().jobId(jobId).build());
+        applicationService.apply(candidate, ApplyRequest.builder().jobId(jobId).resumeId(resumeId).build());
 
         var captor = org.mockito.ArgumentCaptor.forClass(Application.class);
         verify(applicationRepository, atLeastOnce()).save(captor.capture());
         Application saved = captor.getValue();
         assertThat(saved.getCurrentStatus()).isEqualTo(ApplicationStatus.RESUME_PARSING);
+        assertThat(saved.getResumeId()).isEqualTo(resumeId);
         verify(eventProducer).publishApplicationCreated(any());
+    }
+
+    @Test
+    void apply_shouldThrow_whenResumeBelongsToAnotherCandidate() {
+        UUID resumeId = UUID.randomUUID();
+        ResumeDto resume = new ResumeDto();
+        resume.setId(resumeId);
+        resume.setCandidateId(UUID.randomUUID());
+        resume.setStatus("ACTIVE");
+
+        when(applicationRepository.existsByCandidateIdAndJobId(candidate.getUserId(), jobId)).thenReturn(false);
+        when(jobServiceClient.getJob(jobId)).thenReturn(new FeignApiResponse<>(true, "OK", publishedJob()));
+        when(candidateServiceClient.getCandidateSummary(candidate.getUserId())).thenReturn(new FeignApiResponse<>(true, "OK", completeCandidate()));
+        when(resumeServiceClient.getResume(resumeId)).thenReturn(new FeignApiResponse<>(true, "OK", resume));
+
+        assertThatThrownBy(() -> applicationService.apply(candidate, ApplyRequest.builder().jobId(jobId).resumeId(resumeId).build()))
+                .isInstanceOf(ApplicationValidationException.class);
+
+        verify(applicationRepository, never()).save(any());
     }
 
     @Test

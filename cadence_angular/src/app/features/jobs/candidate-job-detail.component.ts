@@ -3,7 +3,9 @@ import { CommonModule } from '@angular/common';
 import { ActivatedRoute, Router } from '@angular/router';
 import { AppStateService } from '../../core/services/app-state.service';
 import { JobService } from '../../core/services/job.service';
+import { ResumeService } from '../../core/services/resume.service';
 import { CandidateJobDetailResponse } from '../../core/models/job.model';
+import { ResumeResponse, ResumeStatus } from '../../core/models/resume.model';
 
 @Component({
   selector: 'app-candidate-job-detail',
@@ -75,14 +77,50 @@ import { CandidateJobDetailResponse } from '../../core/models/job.model';
               This job is no longer accepting applications.
             </p>
 
-            <button
-              class="btn-primary"
-              style="width:100%; margin-bottom:8px;"
-              [disabled]="alreadyApplied() || !isOpenForApplications() || applying()"
-              (click)="apply()">
-              {{ alreadyApplied() ? 'Applied ✓' : (applying() ? 'Submitting…' : 'Apply now') }}
-            </button>
-            <button class="btn-ghost" style="width:100%;" (click)="save()">Save for later</button>
+            <!-- Resume picker: shown after clicking "Apply now", before final submit -->
+            <ng-container *ngIf="showResumePicker()">
+              <p style="font-size:12.5px; color:var(--ink-soft); margin-bottom:10px;">Choose the resume to apply with:</p>
+
+              <div *ngIf="activeResumes().length" style="margin-bottom:12px;">
+                <label
+                  *ngFor="let resume of activeResumes()"
+                  style="display:flex; align-items:center; gap:8px; padding:8px 0; font-size:13px; cursor:pointer;">
+                  <input
+                    type="radio"
+                    name="resume-select"
+                    [value]="resume.id"
+                    [checked]="selectedResumeId() === resume.id"
+                    (change)="selectedResumeId.set(resume.id)">
+                  {{ resume.displayName }}<span *ngIf="resume.defaultResume" style="color:var(--ink-soft);"> (Default)</span>
+                </label>
+              </div>
+
+              <p *ngIf="!activeResumes().length" style="font-size:12.5px; color:var(--ink-soft); margin-bottom:12px;">
+                You haven't uploaded a resume yet.
+                <a class="card-link" (click)="goToResumes()">Upload one</a> to apply.
+              </p>
+
+              <button
+                *ngIf="activeResumes().length"
+                class="btn-primary"
+                style="width:100%; margin-bottom:8px;"
+                [disabled]="!selectedResumeId() || applying()"
+                (click)="confirmApply()">
+                {{ applying() ? 'Submitting…' : 'Submit application' }}
+              </button>
+              <button class="btn-ghost" style="width:100%;" (click)="cancelApply()">Cancel</button>
+            </ng-container>
+
+            <ng-container *ngIf="!showResumePicker()">
+              <button
+                class="btn-primary"
+                style="width:100%; margin-bottom:8px;"
+                [disabled]="alreadyApplied() || !isOpenForApplications()"
+                (click)="startApply()">
+                {{ alreadyApplied() ? 'Applied ✓' : 'Apply now' }}
+              </button>
+              <button class="btn-ghost" style="width:100%;" (click)="save()">Save for later</button>
+            </ng-container>
           </div>
         </div>
       </div>
@@ -104,6 +142,12 @@ export class CandidateJobDetailComponent implements OnInit {
   notFound = signal(false);
   applying = signal(false);
 
+  showResumePicker = signal(false);
+  resumes = signal<ResumeResponse[]>([]);
+  selectedResumeId = signal<string | null>(null);
+
+  activeResumes = computed(() => this.resumes().filter(r => r.status === ResumeStatus.ACTIVE));
+
   alreadyApplied = computed(() => {
     const j = this.job();
     if (!j) return false;
@@ -114,7 +158,8 @@ export class CandidateJobDetailComponent implements OnInit {
     public state: AppStateService,
     private route: ActivatedRoute,
     private router: Router,
-    private jobService: JobService
+    private jobService: JobService,
+    private resumeService: ResumeService
   ) {}
 
   ngOnInit() {
@@ -208,12 +253,38 @@ export class CandidateJobDetailComponent implements OnInit {
     this.router.navigate(['/candidate/browse-jobs']);
   }
 
-  apply() {
+  goToResumes() {
+    this.router.navigate(['/candidate/resumes']);
+  }
+
+  startApply() {
+    if (this.alreadyApplied() || !this.isOpenForApplications()) return;
+    this.resumeService.listMyResumes().subscribe({
+      next: (res) => {
+        this.resumes.set(res.data);
+        const active = res.data.filter(r => r.status === ResumeStatus.ACTIVE);
+        const preselected = active.find(r => r.defaultResume) ?? active[0];
+        this.selectedResumeId.set(preselected?.id ?? null);
+        this.showResumePicker.set(true);
+      },
+      error: () => this.state.showToast('Could not load your resumes.'),
+    });
+  }
+
+  cancelApply() {
+    this.showResumePicker.set(false);
+  }
+
+  confirmApply() {
     const jobId = this.job()?.id;
-    if (!jobId || this.alreadyApplied() || !this.isOpenForApplications()) return;
+    const resumeId = this.selectedResumeId();
+    if (!jobId || !resumeId) return;
     this.applying.set(true);
-    this.state.applyToJob(jobId).subscribe({
-      next: () => this.applying.set(false),
+    this.state.applyToJob(jobId, resumeId).subscribe({
+      next: () => {
+        this.applying.set(false);
+        this.showResumePicker.set(false);
+      },
       error: (err) => {
         this.applying.set(false);
         this.state.showToast(err?.error?.message ?? 'Could not submit this application.');

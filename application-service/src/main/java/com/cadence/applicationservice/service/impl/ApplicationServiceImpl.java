@@ -2,8 +2,10 @@ package com.cadence.applicationservice.service.impl;
 
 import com.cadence.applicationservice.client.CandidateServiceClient;
 import com.cadence.applicationservice.client.JobServiceClient;
+import com.cadence.applicationservice.client.ResumeServiceClient;
 import com.cadence.applicationservice.client.dto.CandidateDto;
 import com.cadence.applicationservice.client.dto.JobDto;
+import com.cadence.applicationservice.client.dto.ResumeDto;
 import com.cadence.applicationservice.config.RedisConfig;
 import com.cadence.applicationservice.constant.ApplicationStage;
 import com.cadence.applicationservice.constant.ApplicationStatus;
@@ -60,6 +62,7 @@ public class ApplicationServiceImpl implements ApplicationService, ApplicationLi
     private final ApplicationEventRepository eventRepository;
     private final JobServiceClient jobServiceClient;
     private final CandidateServiceClient candidateServiceClient;
+    private final ResumeServiceClient resumeServiceClient;
     private final ApplicationMapper applicationMapper;
     private final ApplicationEventProducer eventProducer;
     private final CacheManager cacheManager;
@@ -97,6 +100,8 @@ public class ApplicationServiceImpl implements ApplicationService, ApplicationLi
                     "Complete at least " + minProfileCompletionPercent + "% of your profile before applying (currently " + completion + "%)");
         }
 
+        validateResumeOwnership(request.getResumeId(), candidate.getUserId());
+
         Application application = Application.builder()
                 .companyId(job.getCompanyId())
                 .jobId(job.getId())
@@ -104,6 +109,7 @@ public class ApplicationServiceImpl implements ApplicationService, ApplicationLi
                 .candidateNameSnapshot(candidateProfile.getFullName())
                 .candidateEmailSnapshot(candidateProfile.getEmail())
                 .jobTitleSnapshot(job.getTitle())
+                .resumeId(request.getResumeId())
                 .currentStatus(ApplicationStatus.APPLIED)
                 .currentStage(ApplicationStage.APPLICATION)
                 .createdBy(candidate.getUserId())
@@ -599,6 +605,27 @@ public class ApplicationServiceImpl implements ApplicationService, ApplicationLi
             return response.getData();
         } catch (feign.FeignException.NotFound e) {
             throw new ResourceNotFoundException(ErrorCode.JOB_NOT_FOUND, "Job not found");
+        }
+    }
+
+    private void validateResumeOwnership(UUID resumeId, UUID candidateId) {
+        ResumeDto resume;
+        try {
+            var response = resumeServiceClient.getResume(resumeId);
+            if (response == null || response.getData() == null) {
+                throw new ApplicationValidationException(ErrorCode.RESUME_NOT_FOUND, "Selected resume not found");
+            }
+            resume = response.getData();
+        } catch (feign.FeignException.NotFound e) {
+            throw new ApplicationValidationException(ErrorCode.RESUME_NOT_FOUND, "Selected resume not found");
+        }
+        if (!candidateId.equals(resume.getCandidateId())) {
+            // Same 404-shaped error a truly-missing resume would give -- never reveal that a resumeId
+            // belonging to a different candidate exists.
+            throw new ApplicationValidationException(ErrorCode.RESUME_NOT_FOUND, "Selected resume not found");
+        }
+        if (!"ACTIVE".equalsIgnoreCase(resume.getStatus())) {
+            throw new ApplicationValidationException(ErrorCode.RESUME_NOT_FOUND, "Selected resume is no longer available -- choose another");
         }
     }
 

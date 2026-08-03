@@ -45,6 +45,7 @@ export enum Priority {
 
 export interface ApplyRequest {
   jobId: string;
+  resumeId: string;
 }
 
 export interface StatusChangeRequest {
