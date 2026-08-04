@@ -85,14 +85,18 @@ public class CodingEvaluationServiceImpl implements CodingEvaluationService {
 
             int scorePercent = assessment.getTotalMarks() == 0 ? 0
                     : Math.round((float) totalScore * 100 / assessment.getTotalMarks());
+            boolean passed = scorePercent >= assessment.getPassingScorePercent();
+            ca.setPassed(passed);
+            candidateAssessmentRepository.save(ca);
 
             applicationServiceClient.updateCodingScore(ca.getApplicationId(),
                     ScoreUpdateRequest.builder().score(scorePercent).source("coding-assessment-service").build());
 
             eventProducer.publishCodingAssessmentCompleted(CodingAssessmentCompletedEvent.builder()
-                    .applicationId(ca.getApplicationId()).score(scorePercent).build());
+                    .applicationId(ca.getApplicationId()).score(scorePercent).passed(passed).build());
 
-            log.info("Evaluation completed for candidate assessment {} -- score {}%", candidateAssessmentId, scorePercent);
+            log.info("Evaluation completed for candidate assessment {} -- score {}% (passing threshold {}%, passed={})",
+                    candidateAssessmentId, scorePercent, assessment.getPassingScorePercent(), passed);
         } catch (Exception e) {
             log.warn("Evaluation failed for candidate assessment {}: {}", candidateAssessmentId, e.getMessage(), e);
         }

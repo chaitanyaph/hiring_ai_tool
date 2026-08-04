@@ -35,6 +35,7 @@ export const routes: Routes = [
       { path: 'recommendations', loadComponent: () => import('./features/recommendations/recommendations.component').then(m => m.RecommendationsComponent) },
       { path: 'ai-interviews', loadComponent: () => import('./features/ai-interviews/ai-interviews.component').then(m => m.AiInterviewsComponent) },
       { path: 'coding-assessments', loadComponent: () => import('./features/coding-assessments/coding-assessments.component').then(m => m.CodingAssessmentsComponent) },
+      { path: 'question-bank', loadComponent: () => import('./features/question-bank/question-bank.component').then(m => m.QuestionBankComponent) },
       { path: 'notifications', loadComponent: () => import('./features/notifications/notifications.component').then(m => m.NotificationsComponent) },
       { path: 'offers', loadComponent: () => import('./features/offers/offers.component').then(m => m.OffersComponent) },
       { path: 'settings', loadComponent: () => import('./features/settings/settings.component').then(m => m.SettingsComponent) }

@@ -28,7 +28,18 @@ public class UpdateQuestionRequest {
 
     private String exampleText;
     private String constraintsText;
+    private String inputFormat;
+    private String outputFormat;
+    private String explanation;
     private List<String> tags;
+    private List<String> topics;
+    private List<String> hints;
+
+    @Min(1)
+    private Integer timeLimitMs;
+
+    @Min(1)
+    private Integer memoryLimitMb;
 
     @NotEmpty
     private List<ProgrammingLanguage> allowedLanguages;

@@ -10,7 +10,7 @@ import java.util.UUID;
 /** Read-only side backing the Assessments list/details drawer, the coding queue tab, and the candidate-facing history/intro/result screens. */
 public interface AssessmentQueryService {
 
-    PagedResponse<AssessmentListItemResponse> listAssessments(UUID companyId, AssessmentStatus status, Pageable pageable);
+    PagedResponse<AssessmentListItemResponse> listAssessments(UUID companyId, AssessmentStatus status, UUID jobId, Pageable pageable);
 
     AssessmentResponse getAssessment(UUID companyId, UUID assessmentId);
 

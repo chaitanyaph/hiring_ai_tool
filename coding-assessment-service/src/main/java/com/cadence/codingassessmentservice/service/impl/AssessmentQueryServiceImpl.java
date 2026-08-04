@@ -42,8 +42,8 @@ public class AssessmentQueryServiceImpl implements AssessmentQueryService {
     private final AssessmentMapper assessmentMapper;
 
     @Override
-    public PagedResponse<AssessmentListItemResponse> listAssessments(UUID companyId, AssessmentStatus status, Pageable pageable) {
-        Page<Assessment> page = assessmentRepository.search(companyId, status, pageable);
+    public PagedResponse<AssessmentListItemResponse> listAssessments(UUID companyId, AssessmentStatus status, UUID jobId, Pageable pageable) {
+        Page<Assessment> page = assessmentRepository.search(companyId, status, jobId, pageable);
         return PagedResponse.from(page.map(this::enrichListItem));
     }
 
@@ -87,12 +87,16 @@ public class AssessmentQueryServiceImpl implements AssessmentQueryService {
 
         return PagedResponse.from(page.map(ca -> {
             ApplicationSummaryDto app = applications.get(ca.getApplicationId());
+            Integer scorePercent = ca.getTotalScore() == null || assessment.getTotalMarks() == 0 ? null
+                    : Math.round((float) ca.getTotalScore() * 100 / assessment.getTotalMarks());
             return CodingQueueItemResponse.builder()
                     .applicationId(ca.getApplicationId())
                     .candidateName(app != null ? app.getCandidateNameSnapshot() : null)
                     .candidateEmail(app != null ? app.getCandidateEmailSnapshot() : null)
                     .jobTitle(app != null ? app.getJobTitleSnapshot() : null)
                     .status(ca.getStatus())
+                    .scorePercent(scorePercent)
+                    .passed(ca.getPassed())
                     .dueOrCompletedAt(ca.getStatus() == CandidateAssessmentStatus.COMPLETED ? ca.getCompletedAt() : ca.getExpiresAt())
                     .build();
         }));
@@ -154,6 +158,7 @@ public class AssessmentQueryServiceImpl implements AssessmentQueryService {
         return AssessmentResultResponse.builder()
                 .candidateAssessmentId(ca.getId())
                 .scorePercent(scorePercent)
+                .passed(ca.getPassed())
                 .testCasesPassed(ca.getTestCasesPassed())
                 .testCasesTotal(ca.getTestCasesTotal())
                 .timeUsedMinutes(ca.getTimeUsedSeconds() == null ? null : ca.getTimeUsedSeconds() / 60)

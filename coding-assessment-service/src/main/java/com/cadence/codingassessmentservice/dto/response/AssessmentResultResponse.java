@@ -14,6 +14,7 @@ import java.util.UUID;
 public class AssessmentResultResponse {
     private UUID candidateAssessmentId;
     private Integer scorePercent;
+    private Boolean passed;
     private Integer testCasesPassed;
     private Integer testCasesTotal;
     private Integer timeUsedMinutes;

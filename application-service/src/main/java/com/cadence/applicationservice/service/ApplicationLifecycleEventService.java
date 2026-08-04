@@ -23,7 +23,7 @@ public interface ApplicationLifecycleEventService {
 
     void handleInterviewCompleted(UUID applicationId, InterviewType interviewType, Integer score, String feedback);
 
-    void handleCodingAssessmentCompleted(UUID applicationId, Integer score);
+    void handleCodingAssessmentCompleted(UUID applicationId, Integer score, Boolean passed);
 
     void handleBackgroundVerificationCompleted(UUID applicationId, boolean passed, String remarks);
 

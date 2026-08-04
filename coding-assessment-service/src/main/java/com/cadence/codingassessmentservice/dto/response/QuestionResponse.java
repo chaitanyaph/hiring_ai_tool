@@ -1,6 +1,7 @@
 package com.cadence.codingassessmentservice.dto.response;
 
 import com.cadence.codingassessmentservice.constants.Difficulty;
+import com.cadence.codingassessmentservice.constants.QuestionStatus;
 import lombok.*;
 
 import java.util.List;
@@ -16,16 +17,25 @@ import java.util.UUID;
 public class QuestionResponse {
     private UUID id;
     private String title;
+    private QuestionStatus status;
     private Difficulty difficulty;
     private int marks;
     private String description;
     private String exampleText;
     private String constraintsText;
+    private String inputFormat;
+    private String outputFormat;
+    private String explanation;
     private List<String> tags;
+    private List<String> topics;
+    private List<String> hints;
+    private int timeLimitMs;
+    private int memoryLimitMb;
     private List<String> allowedLanguages;
     private Map<String, String> starterCodes;
     private List<TestCaseResponse> testCases;
     private int hiddenTestCaseCount;
+    private int usedInAssessmentCount;
 
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
     public static class TestCaseResponse {
@@ -33,5 +43,8 @@ public class QuestionResponse {
         private String visibility;
         private String inputData;
         private String expectedOutput;
+        private String explanation;
+        private int weight;
+        private int displayOrder;
     }
 }

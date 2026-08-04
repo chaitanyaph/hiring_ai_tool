@@ -1,8 +1,10 @@
 package com.cadence.codingassessmentservice.entity;
 
 import com.cadence.codingassessmentservice.constants.Difficulty;
+import com.cadence.codingassessmentservice.constants.QuestionStatus;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -31,6 +33,11 @@ public class Question extends BaseAuditEntity {
     private String title;
 
     @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false, length = 20)
+    @Builder.Default
+    private QuestionStatus status = QuestionStatus.DRAFT;
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "difficulty", nullable = false, length = 20)
     private Difficulty difficulty;
 
@@ -46,9 +53,29 @@ public class Question extends BaseAuditEntity {
     @Column(name = "constraints_text", columnDefinition = "TEXT")
     private String constraintsText;
 
+    @Column(name = "input_format", columnDefinition = "TEXT")
+    private String inputFormat;
+
+    @Column(name = "output_format", columnDefinition = "TEXT")
+    private String outputFormat;
+
+    @Column(name = "explanation", columnDefinition = "TEXT")
+    private String explanation;
+
     @Column(name = "tags", length = 300)
     private String tags;
 
+    @Column(name = "topics", length = 300)
+    private String topics;
+
     @Column(name = "allowed_languages", nullable = false, length = 200)
     private String allowedLanguages;
+
+    @Column(name = "time_limit_ms", nullable = false)
+    @Builder.Default
+    private int timeLimitMs = 2000;
+
+    @Column(name = "memory_limit_mb", nullable = false)
+    @Builder.Default
+    private int memoryLimitMb = 256;
 }

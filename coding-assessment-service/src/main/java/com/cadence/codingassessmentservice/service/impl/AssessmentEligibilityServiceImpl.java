@@ -1,12 +1,16 @@
 package com.cadence.codingassessmentservice.service.impl;
 
+import com.cadence.codingassessmentservice.constants.AssessmentStatus;
 import com.cadence.codingassessmentservice.constants.HiringRecommendation;
+import com.cadence.codingassessmentservice.entity.Assessment;
 import com.cadence.codingassessmentservice.entity.AssessmentEligibility;
 import com.cadence.codingassessmentservice.entity.CandidateAssessment;
 import com.cadence.codingassessmentservice.kafka.event.CandidateRecommendedEvent;
 import com.cadence.codingassessmentservice.repository.AssessmentEligibilityRepository;
+import com.cadence.codingassessmentservice.repository.AssessmentRepository;
 import com.cadence.codingassessmentservice.repository.CandidateAssessmentRepository;
 import com.cadence.codingassessmentservice.service.AssessmentEligibilityService;
+import com.cadence.codingassessmentservice.service.CandidateAssessmentService;
 import com.cadence.codingassessmentservice.service.EligibleCandidate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +28,12 @@ import java.util.stream.Collectors;
  * itself (a documented gap on ai-interview-service's side), so this
  * service tracks eligibility locally from the same event -- this is
  * the pool "publish" invites from.
+ *
+ * A candidate recommended AFTER an assessment for their job is already
+ * published used to be invited only on the next manual publish action
+ * (which never comes again once a job's assessment is already live) --
+ * handleCandidateRecommended now also invites immediately into any
+ * already-published assessment for the job, closing that gap.
  */
 @Slf4j
 @Service
@@ -32,6 +42,8 @@ public class AssessmentEligibilityServiceImpl implements AssessmentEligibilitySe
 
     private final AssessmentEligibilityRepository assessmentEligibilityRepository;
     private final CandidateAssessmentRepository candidateAssessmentRepository;
+    private final AssessmentRepository assessmentRepository;
+    private final CandidateAssessmentService candidateAssessmentService;
 
     @Override
     @Transactional
@@ -50,6 +62,16 @@ public class AssessmentEligibilityServiceImpl implements AssessmentEligibilitySe
                         .recommendedAt(event.getOccurredAt())
                         .build());
         assessmentEligibilityRepository.save(eligibility);
+
+        if (event.getHiringRecommendation() != HiringRecommendation.PROCEED) {
+            return;
+        }
+        for (Assessment assessment : assessmentRepository.findAllByJobIdAndStatus(event.getJobId(), AssessmentStatus.PUBLISHED)) {
+            if (candidateAssessmentRepository.findByAssessmentIdAndApplicationId(assessment.getId(), event.getApplicationId()).isEmpty()) {
+                candidateAssessmentService.inviteCandidate(assessment.getId(), event.getApplicationId(), event.getJobId(), event.getCandidateId());
+                log.info("Auto-invited application {} to already-published assessment {} following late CandidateRecommended", event.getApplicationId(), assessment.getId());
+            }
+        }
     }
 
     @Override

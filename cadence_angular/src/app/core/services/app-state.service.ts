@@ -36,6 +36,7 @@ import {
   AssessmentListItemResponse,
   AssessmentResponse,
   AssessmentStatus,
+  BulkImportTestCasesRequest,
   CandidateAssessmentHistoryItemResponse,
   CandidateAssessmentIntroResponse,
   CandidateAssessmentStatus,
@@ -43,14 +44,21 @@ import {
   CodingQueueItemResponse,
   CodingResultsSummaryResponse,
   CreateAssessmentRequest,
+  CreateQuestionRequest,
+  CreateTestCaseRequest,
+  Difficulty,
   FinishAssessmentRequest,
   IdeQuestionResponse,
   LeaderboardItemResponse,
   MarkForReviewRequest,
+  QuestionResponse,
+  QuestionStatus,
+  ReorderTestCasesRequest,
   RunCodeRequest,
   StartAssessmentRequest,
   SubmissionDrawerResponse,
   SubmitCodeRequest,
+  UpdateQuestionRequest,
 } from '../models/coding-assessment.model';
 import {
   AnswerRequest,
@@ -220,6 +228,10 @@ export class AppStateService {
 
   // Coding Assessment module state (coding-assessment-service) -- real backend data, not mock.
   codingAssessmentsList = signal<AssessmentListItemResponse[]>([]);
+  questionBankList = signal<QuestionResponse[]>([]);
+  questionBankLoading = signal<boolean>(false);
+  activeQuestionBank = signal<QuestionResponse[]>([]);
+  selectedQuestion = signal<QuestionResponse | null>(null);
   codingAssessmentQueue = signal<CodingQueueItemResponse[]>([]);
   codingResultsSummary = signal<CodingResultsSummaryResponse | null>(null);
   codingLeaderboard = signal<LeaderboardItemResponse[]>([]);
@@ -253,6 +265,12 @@ export class AppStateService {
 
   // Global modal system signal
   activeModal = signal<string | null>(null);
+
+  // Which job the "New assessment" modal will attach to -- set to the newly
+  // created job right after the job wizard when its "Coding assessment"
+  // stage is enabled, or defaulted to the first job when opened generically
+  // from the Assessments page.
+  assessmentModalJobId = signal<string>('');
 
   constructor() {
     this.resetData();
@@ -462,7 +480,7 @@ export class AppStateService {
     deadline: string;
     stages: { name: string; enabled: boolean }[];
     publish: boolean;
-  }) {
+  }, onCreated?: (jobId: string) => void) {
     const dept = this.departments().find((d) => d.departmentName === params.departmentName);
     const [minExperienceYears, maxExperienceYears] = this.parseExperienceRange(params.experienceRange);
 
@@ -499,10 +517,11 @@ export class AppStateService {
         switchMap((updated) => (params.publish ? this.jobService.publish(updated.data.id) : [updated]))
       )
       .subscribe({
-        next: () => {
+        next: (res) => {
           this.loadJobs();
           this.showToast(params.publish ? 'Job published' : 'Job saved as draft');
           this.closeModal();
+          onCreated?.(res.data.id);
         },
         error: (err) => this.showToast(err?.error?.message ?? 'Could not save this job.'),
       });
@@ -1767,6 +1786,112 @@ export class AppStateService {
     this.candidateInterviewDetails.set(null);
     this.candidateInterviewQuestion.set(null);
     this.candidateInterviewResult.set(null);
+  }
+
+  // ---- Question Bank actions (coding-assessment-service) ----
+
+  loadQuestionBank(difficulty?: Difficulty, status?: QuestionStatus, search?: string) {
+    this.questionBankLoading.set(true);
+    this.codingAssessmentService.listQuestions(difficulty, status, search, 0, 100).subscribe({
+      next: (res) => { this.questionBankList.set(res.data.content); this.questionBankLoading.set(false); },
+      error: () => { this.showToast('Could not load the question bank.'); this.questionBankLoading.set(false); },
+    });
+  }
+
+  loadActiveQuestionBank() {
+    this.codingAssessmentService.listActiveQuestions().subscribe({
+      next: (res) => this.activeQuestionBank.set(res.data),
+      error: () => this.showToast('Could not load active questions.'),
+    });
+  }
+
+  loadQuestion(id: string) {
+    this.codingAssessmentService.getQuestion(id).subscribe({
+      next: (res) => this.selectedQuestion.set(res.data),
+      error: (err) => this.showToast(err?.error?.message ?? 'Could not load this question.'),
+    });
+  }
+
+  createQuestion(request: CreateQuestionRequest) {
+    return this.codingAssessmentService.createQuestion(request).pipe(
+      tap(() => { this.showToast('Question created'); this.loadQuestionBank(); this.loadActiveQuestionBank(); })
+    );
+  }
+
+  updateQuestion(id: string, request: UpdateQuestionRequest) {
+    return this.codingAssessmentService.updateQuestion(id, request).pipe(
+      tap(() => { this.showToast('Question updated'); this.loadQuestionBank(); this.loadActiveQuestionBank(); })
+    );
+  }
+
+  deleteQuestion(id: string) {
+    this.codingAssessmentService.deleteQuestion(id).subscribe({
+      next: () => { this.showToast('Question deleted'); this.loadQuestionBank(); },
+      error: (err) => this.showToast(err?.error?.message ?? 'Could not delete this question -- it may be used in an assessment.'),
+    });
+  }
+
+  duplicateQuestion(id: string) {
+    this.codingAssessmentService.duplicateQuestion(id).subscribe({
+      next: () => { this.showToast('Question duplicated'); this.loadQuestionBank(); },
+      error: (err) => this.showToast(err?.error?.message ?? 'Could not duplicate this question.'),
+    });
+  }
+
+  activateQuestion(id: string) {
+    this.codingAssessmentService.activateQuestion(id).subscribe({
+      next: () => { this.showToast('Question activated'); this.loadQuestionBank(); this.loadActiveQuestionBank(); },
+      error: (err) => this.showToast(err?.error?.message ?? 'Could not activate this question.'),
+    });
+  }
+
+  deactivateQuestion(id: string) {
+    this.codingAssessmentService.deactivateQuestion(id).subscribe({
+      next: () => { this.showToast('Question deactivated'); this.loadQuestionBank(); this.loadActiveQuestionBank(); },
+      error: (err) => this.showToast(err?.error?.message ?? 'Could not deactivate this question.'),
+    });
+  }
+
+  archiveQuestion(id: string) {
+    this.codingAssessmentService.archiveQuestion(id).subscribe({
+      next: () => { this.showToast('Question archived'); this.loadQuestionBank(); this.loadActiveQuestionBank(); },
+      error: (err) => this.showToast(err?.error?.message ?? 'Could not archive this question.'),
+    });
+  }
+
+  // ---- Question Bank: test cases ----
+
+  addTestCase(questionId: string, request: CreateTestCaseRequest) {
+    return this.codingAssessmentService.addTestCase(questionId, request).pipe(tap(() => this.loadQuestion(questionId)));
+  }
+
+  updateTestCase(questionId: string, testCaseId: string, request: CreateTestCaseRequest) {
+    return this.codingAssessmentService.updateTestCase(questionId, testCaseId, request).pipe(tap(() => this.loadQuestion(questionId)));
+  }
+
+  deleteTestCase(questionId: string, testCaseId: string) {
+    this.codingAssessmentService.deleteTestCase(questionId, testCaseId).subscribe({
+      next: () => this.loadQuestion(questionId),
+      error: (err) => this.showToast(err?.error?.message ?? 'Could not delete this test case.'),
+    });
+  }
+
+  duplicateTestCase(questionId: string, testCaseId: string) {
+    this.codingAssessmentService.duplicateTestCase(questionId, testCaseId).subscribe({
+      next: () => this.loadQuestion(questionId),
+      error: (err) => this.showToast(err?.error?.message ?? 'Could not duplicate this test case.'),
+    });
+  }
+
+  reorderTestCases(questionId: string, request: ReorderTestCasesRequest) {
+    this.codingAssessmentService.reorderTestCases(questionId, request).subscribe({
+      next: () => this.loadQuestion(questionId),
+      error: (err) => this.showToast(err?.error?.message ?? 'Could not reorder test cases.'),
+    });
+  }
+
+  bulkImportTestCases(questionId: string, request: BulkImportTestCasesRequest) {
+    return this.codingAssessmentService.bulkImportTestCases(questionId, request).pipe(tap(() => this.loadQuestion(questionId)));
   }
 
   // ---- Coding Assessment module actions (coding-assessment-service) ----

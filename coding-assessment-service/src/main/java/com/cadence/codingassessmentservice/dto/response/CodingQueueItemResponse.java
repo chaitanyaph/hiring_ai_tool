@@ -18,5 +18,7 @@ public class CodingQueueItemResponse {
     private String candidateEmail;
     private String jobTitle;
     private CandidateAssessmentStatus status;
+    private Integer scorePercent;
+    private Boolean passed;
     private LocalDateTime dueOrCompletedAt;
 }

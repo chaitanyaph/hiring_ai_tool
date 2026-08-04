@@ -32,6 +32,13 @@ public class QuestionTestCase {
     @Column(name = "expected_output", nullable = false, columnDefinition = "TEXT")
     private String expectedOutput;
 
+    @Column(name = "explanation", columnDefinition = "TEXT")
+    private String explanation;
+
+    @Column(name = "weight", nullable = false)
+    @Builder.Default
+    private int weight = 1;
+
     @Column(name = "display_order", nullable = false)
     private int displayOrder;
 }

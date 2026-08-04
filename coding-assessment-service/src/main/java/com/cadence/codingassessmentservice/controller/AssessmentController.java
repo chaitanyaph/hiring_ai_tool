@@ -104,11 +104,12 @@ public class AssessmentController {
     }
 
     @GetMapping
-    @Operation(summary = "List assessments (Assessments tab table)")
+    @Operation(summary = "List assessments (Assessments tab table)", description = "Optionally filter by jobId -- used by the job creation wizard to check whether a job already has an assessment")
     public ResponseEntity<ApiResponse<PagedResponse<AssessmentListItemResponse>>> list(
-            @RequestParam(required = false) AssessmentStatus status, @PageableDefault(size = 20) Pageable pageable) {
+            @RequestParam(required = false) AssessmentStatus status, @RequestParam(required = false) UUID jobId,
+            @PageableDefault(size = 20) Pageable pageable) {
         var companyId = currentUserProvider.getCurrentUser().getCompanyId();
-        return ResponseEntity.ok(ApiResponse.ok("OK", assessmentQueryService.listAssessments(companyId, status, pageable)));
+        return ResponseEntity.ok(ApiResponse.ok("OK", assessmentQueryService.listAssessments(companyId, status, jobId, pageable)));
     }
 
     @GetMapping("/{id}")

@@ -10,4 +10,5 @@ public interface AssessmentQuestionRepository extends JpaRepository<AssessmentQu
     List<AssessmentQuestion> findAllByAssessmentIdOrderByDisplayOrderAsc(UUID assessmentId);
     void deleteAllByAssessmentId(UUID assessmentId);
     long countByAssessmentId(UUID assessmentId);
+    long countByQuestionId(UUID questionId);
 }

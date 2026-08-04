@@ -130,6 +130,10 @@ import { AuthService } from '../../core/services/auth.service';
             <svg viewBox="0 0 24 24"><path d="M9 3h6l1 4H8l1-4z"/><rect x="4" y="7" width="16" height="14" rx="2"/><path d="M9 12l2 2-2 2M14 16h2"/></svg>
             Coding Assessments
           </a>
+          <a class="navlink" routerLink="/recruiter/question-bank" routerLinkActive="active">
+            <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+            Question Bank
+          </a>
           <a class="navlink" routerLink="/recruiter/offers" routerLinkActive="active">
             <svg viewBox="0 0 24 24"><path d="M20 12v6a2 2 0 01-2 2H6a2 2 0 01-2-2v-6"/><path d="M2 7h20v5H2z"/><path d="M12 22V7M12 7a2.5 2.5 0 010-5C13.5 2 12 5 12 7zM12 7a2.5 2.5 0 000-5C10.5 2 12 5 12 7z"/></svg>
             Offers

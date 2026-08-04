@@ -29,7 +29,18 @@ public class CreateQuestionRequest {
 
     private String exampleText;
     private String constraintsText;
+    private String inputFormat;
+    private String outputFormat;
+    private String explanation;
     private List<String> tags;
+    private List<String> topics;
+    private List<String> hints;
+
+    @Min(1)
+    private Integer timeLimitMs;
+
+    @Min(1)
+    private Integer memoryLimitMb;
 
     @NotEmpty
     private List<ProgrammingLanguage> allowedLanguages;
@@ -39,6 +50,10 @@ public class CreateQuestionRequest {
 
     @NotEmpty @Valid
     private List<TestCaseItem> testCases;
+
+    /** Save as draft (default) vs. immediately mark ACTIVE and usable in the assessment builder. */
+    @Builder.Default
+    private boolean activateNow = false;
 
     @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
     public static class StarterCodeItem {
@@ -55,5 +70,8 @@ public class CreateQuestionRequest {
         private String inputData;
         @NotBlank
         private String expectedOutput;
+        private String explanation;
+        @Min(1)
+        private Integer weight;
     }
 }

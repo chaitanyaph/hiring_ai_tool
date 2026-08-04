@@ -10,6 +10,7 @@ import {
   AssessmentResponse,
   AssessmentResultResponse,
   AssessmentStatus,
+  BulkImportTestCasesRequest,
   CandidateAssessmentHistoryItemResponse,
   CandidateAssessmentIntroResponse,
   CandidateAssessmentStatus,
@@ -17,10 +18,17 @@ import {
   CodingQueueItemResponse,
   CodingResultsSummaryResponse,
   CreateAssessmentRequest,
+  CreateQuestionRequest,
+  CreateTestCaseRequest,
+  Difficulty,
   FinishAssessmentRequest,
   IdeQuestionResponse,
   LeaderboardItemResponse,
   MarkForReviewRequest,
+  QuestionResponse,
+  QuestionStatus,
+  QuestionTestCaseResponse,
+  ReorderTestCasesRequest,
   RunCodeRequest,
   RunCodeResponse,
   StartAssessmentRequest,
@@ -28,6 +36,7 @@ import {
   SubmissionHistoryItemResponse,
   SubmitCodeRequest,
   SubmitCodeResponse,
+  UpdateQuestionRequest,
   AiCodeReviewResponse,
 } from '../models/coding-assessment.model';
 
@@ -59,9 +68,10 @@ export class CodingAssessmentService {
     return this.http.post<ApiResponse<void>>(`${BASE_URL}/assessments/${id}/close`, {});
   }
 
-  list(status?: AssessmentStatus, page = 0, size = 20): Observable<ApiResponse<PagedResponse<AssessmentListItemResponse>>> {
+  list(status?: AssessmentStatus, jobId?: string, page = 0, size = 20): Observable<ApiResponse<PagedResponse<AssessmentListItemResponse>>> {
     let params = new HttpParams().set('page', page).set('size', size);
     if (status) params = params.set('status', status);
+    if (jobId) params = params.set('jobId', jobId);
     return this.http.get<ApiResponse<PagedResponse<AssessmentListItemResponse>>>(`${BASE_URL}/assessments`, { params });
   }
 
@@ -169,5 +179,83 @@ export class CodingAssessmentService {
 
   recordAntiCheatEvent(id: string, request: AntiCheatEventRequest): Observable<ApiResponse<void>> {
     return this.http.post<ApiResponse<void>>(`${BASE_URL}/candidate/assessments/${id}/anti-cheat-events`, request);
+  }
+
+  // ---- Question bank ----
+
+  createQuestion(request: CreateQuestionRequest): Observable<ApiResponse<QuestionResponse>> {
+    return this.http.post<ApiResponse<QuestionResponse>>(`${BASE_URL}/questions`, request);
+  }
+
+  updateQuestion(id: string, request: UpdateQuestionRequest): Observable<ApiResponse<QuestionResponse>> {
+    return this.http.put<ApiResponse<QuestionResponse>>(`${BASE_URL}/questions/${id}`, request);
+  }
+
+  deleteQuestion(id: string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(`${BASE_URL}/questions/${id}`);
+  }
+
+  getQuestion(id: string): Observable<ApiResponse<QuestionResponse>> {
+    return this.http.get<ApiResponse<QuestionResponse>>(`${BASE_URL}/questions/${id}`);
+  }
+
+  listQuestions(
+    difficulty?: Difficulty, status?: QuestionStatus, search?: string, page = 0, size = 20
+  ): Observable<ApiResponse<PagedResponse<QuestionResponse>>> {
+    let params = new HttpParams().set('page', page).set('size', size);
+    if (difficulty) params = params.set('difficulty', difficulty);
+    if (status) params = params.set('status', status);
+    if (search) params = params.set('search', search);
+    return this.http.get<ApiResponse<PagedResponse<QuestionResponse>>>(`${BASE_URL}/questions`, { params });
+  }
+
+  listActiveQuestions(): Observable<ApiResponse<QuestionResponse[]>> {
+    return this.http.get<ApiResponse<QuestionResponse[]>>(`${BASE_URL}/questions/active`);
+  }
+
+  duplicateQuestion(id: string): Observable<ApiResponse<QuestionResponse>> {
+    return this.http.post<ApiResponse<QuestionResponse>>(`${BASE_URL}/questions/${id}/duplicate`, {});
+  }
+
+  activateQuestion(id: string): Observable<ApiResponse<QuestionResponse>> {
+    return this.http.post<ApiResponse<QuestionResponse>>(`${BASE_URL}/questions/${id}/activate`, {});
+  }
+
+  deactivateQuestion(id: string): Observable<ApiResponse<QuestionResponse>> {
+    return this.http.post<ApiResponse<QuestionResponse>>(`${BASE_URL}/questions/${id}/deactivate`, {});
+  }
+
+  archiveQuestion(id: string): Observable<ApiResponse<QuestionResponse>> {
+    return this.http.post<ApiResponse<QuestionResponse>>(`${BASE_URL}/questions/${id}/archive`, {});
+  }
+
+  // ---- Question bank: test cases ----
+
+  listTestCases(questionId: string): Observable<ApiResponse<QuestionTestCaseResponse[]>> {
+    return this.http.get<ApiResponse<QuestionTestCaseResponse[]>>(`${BASE_URL}/questions/${questionId}/test-cases`);
+  }
+
+  addTestCase(questionId: string, request: CreateTestCaseRequest): Observable<ApiResponse<QuestionTestCaseResponse>> {
+    return this.http.post<ApiResponse<QuestionTestCaseResponse>>(`${BASE_URL}/questions/${questionId}/test-cases`, request);
+  }
+
+  updateTestCase(questionId: string, testCaseId: string, request: CreateTestCaseRequest): Observable<ApiResponse<QuestionTestCaseResponse>> {
+    return this.http.put<ApiResponse<QuestionTestCaseResponse>>(`${BASE_URL}/questions/${questionId}/test-cases/${testCaseId}`, request);
+  }
+
+  deleteTestCase(questionId: string, testCaseId: string): Observable<ApiResponse<void>> {
+    return this.http.delete<ApiResponse<void>>(`${BASE_URL}/questions/${questionId}/test-cases/${testCaseId}`);
+  }
+
+  duplicateTestCase(questionId: string, testCaseId: string): Observable<ApiResponse<QuestionTestCaseResponse>> {
+    return this.http.post<ApiResponse<QuestionTestCaseResponse>>(`${BASE_URL}/questions/${questionId}/test-cases/${testCaseId}/duplicate`, {});
+  }
+
+  reorderTestCases(questionId: string, request: ReorderTestCasesRequest): Observable<ApiResponse<void>> {
+    return this.http.put<ApiResponse<void>>(`${BASE_URL}/questions/${questionId}/test-cases/reorder`, request);
+  }
+
+  bulkImportTestCases(questionId: string, request: BulkImportTestCasesRequest): Observable<ApiResponse<QuestionTestCaseResponse[]>> {
+    return this.http.post<ApiResponse<QuestionTestCaseResponse[]>>(`${BASE_URL}/questions/${questionId}/test-cases/bulk-import`, request);
   }
 }

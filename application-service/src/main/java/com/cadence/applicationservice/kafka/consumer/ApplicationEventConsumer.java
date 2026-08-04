@@ -81,7 +81,7 @@ public class ApplicationEventConsumer {
     @KafkaListener(topics = KafkaTopics.CODING_ASSESSMENT_COMPLETED, groupId = "application-service-group")
     public void onCodingAssessmentCompleted(CodingAssessmentCompletedEvent event) {
         try {
-            lifecycleEventService.handleCodingAssessmentCompleted(event.getApplicationId(), event.getScore());
+            lifecycleEventService.handleCodingAssessmentCompleted(event.getApplicationId(), event.getScore(), event.getPassed());
         } catch (Exception e) {
             log.error("Failed to process CodingAssessmentCompleted for application {}: {}", event.getApplicationId(), e.getMessage(), e);
         }

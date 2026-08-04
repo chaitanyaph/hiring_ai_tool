@@ -73,6 +73,9 @@ public class CandidateAssessment extends BaseAuditEntity {
     @Column(name = "total_score")
     private Integer totalScore;
 
+    @Column(name = "passed")
+    private Boolean passed;
+
     @Column(name = "test_cases_passed")
     private Integer testCasesPassed;
 

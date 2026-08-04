@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.List;
 import java.util.UUID;
 
 public interface AssessmentRepository extends JpaRepository<Assessment, UUID> {
@@ -16,6 +17,12 @@ public interface AssessmentRepository extends JpaRepository<Assessment, UUID> {
             SELECT a FROM Assessment a
             WHERE a.companyId = :companyId
             AND (:status IS NULL OR a.status = :status)
+            AND (:jobId IS NULL OR a.jobId = :jobId)
             """)
-    Page<Assessment> search(@Param("companyId") UUID companyId, @Param("status") AssessmentStatus status, Pageable pageable);
+    Page<Assessment> search(@Param("companyId") UUID companyId, @Param("status") AssessmentStatus status,
+                             @Param("jobId") UUID jobId, Pageable pageable);
+
+    List<Assessment> findAllByJobIdAndStatus(UUID jobId, AssessmentStatus status);
+
+    List<Assessment> findAllByJobId(UUID jobId);
 }

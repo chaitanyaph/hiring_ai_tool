@@ -476,7 +476,7 @@ public class ApplicationServiceImpl implements ApplicationService, ApplicationLi
 
     @Override
     @Transactional
-    public void handleCodingAssessmentCompleted(UUID applicationId, Integer score) {
+    public void handleCodingAssessmentCompleted(UUID applicationId, Integer score, Boolean passed) {
         Application application = applicationRepository.findById(applicationId).orElse(null);
         if (application == null) {
             log.warn("CodingAssessmentCompleted event for unknown application {}", applicationId);
@@ -489,10 +489,15 @@ public class ApplicationServiceImpl implements ApplicationService, ApplicationLi
         application.setCodingScore(score);
         application.setOverallScore(ScoreCalculator.recomputeOverall(application));
         transitionStatus(application, ApplicationStatus.CODING_ASSESSMENT_COMPLETED, null, "Coding assessment completed, score: " + score);
-        transitionStatus(application, ApplicationStatus.TECHNICAL_INTERVIEW, null, "Technical interview scheduled automatically");
+        boolean didPass = passed == null || passed;
+        if (didPass) {
+            transitionStatus(application, ApplicationStatus.TECHNICAL_INTERVIEW, null, "Technical interview scheduled automatically");
+        } else {
+            transitionStatus(application, ApplicationStatus.REJECTED, null, "Coding assessment score below the passing threshold");
+        }
         applicationRepository.save(application);
         recordScore(applicationId, ScoreType.CODING, score, "coding-assessment-service");
-        recordConsumedEvent(applicationId, "CodingAssessmentCompleted", Map.of("score", String.valueOf(score)));
+        recordConsumedEvent(applicationId, "CodingAssessmentCompleted", Map.of("score", String.valueOf(score), "passed", String.valueOf(didPass)));
     }
 
     @Override

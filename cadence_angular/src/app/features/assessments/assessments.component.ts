@@ -14,7 +14,7 @@ import { AppStateService } from '../../core/services/app-state.service';
           <p>Coding & MCQ test library</p>
         </div>
         <div class="page-head-actions">
-          <button class="btn-primary-sm" (click)="state.openModal('assessment')">
+          <button class="btn-primary-sm" (click)="state.assessmentModalJobId.set(''); state.openModal('assessment')">
             <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
             New assessment
           </button>

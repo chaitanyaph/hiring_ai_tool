@@ -28,6 +28,18 @@ export enum ProgrammingLanguage {
   SQL = 'SQL',
 }
 
+export enum QuestionStatus {
+  DRAFT = 'DRAFT',
+  ACTIVE = 'ACTIVE',
+  INACTIVE = 'INACTIVE',
+  ARCHIVED = 'ARCHIVED',
+}
+
+export enum TestCaseVisibility {
+  VISIBLE = 'VISIBLE',
+  HIDDEN = 'HIDDEN',
+}
+
 export enum CandidateAssessmentStatus {
   NOT_STARTED = 'NOT_STARTED',
   IN_PROGRESS = 'IN_PROGRESS',
@@ -155,6 +167,8 @@ export interface CodingQueueItemResponse {
   candidateEmail: string;
   jobTitle: string;
   status: CandidateAssessmentStatus;
+  scorePercent?: number;
+  passed?: boolean;
   dueOrCompletedAt?: string;
 }
 
@@ -320,6 +334,7 @@ export interface SubmitCodeResponse {
 export interface AssessmentResultResponse {
   candidateAssessmentId: string;
   scorePercent?: number;
+  passed?: boolean;
   testCasesPassed?: number;
   testCasesTotal?: number;
   timeUsedMinutes?: number;
@@ -338,4 +353,92 @@ export interface SubmissionHistoryItemResponse {
   testCasesPassed?: number;
   testCasesTotal?: number;
   score?: number;
+}
+
+// ---- Question Bank ----
+
+export interface TestCaseItem {
+  visibility: TestCaseVisibility;
+  inputData?: string;
+  expectedOutput: string;
+  explanation?: string;
+  weight?: number;
+}
+
+export interface StarterCodeItem {
+  language: ProgrammingLanguage;
+  code: string;
+}
+
+export interface CreateQuestionRequest {
+  title: string;
+  difficulty: Difficulty;
+  marks: number;
+  description: string;
+  exampleText?: string;
+  constraintsText?: string;
+  inputFormat?: string;
+  outputFormat?: string;
+  explanation?: string;
+  tags?: string[];
+  topics?: string[];
+  hints?: string[];
+  timeLimitMs?: number;
+  memoryLimitMb?: number;
+  allowedLanguages: ProgrammingLanguage[];
+  starterCodes?: StarterCodeItem[];
+  testCases: TestCaseItem[];
+  activateNow?: boolean;
+}
+
+export type UpdateQuestionRequest = Omit<CreateQuestionRequest, 'activateNow'>;
+
+export interface QuestionTestCaseResponse {
+  id: string;
+  visibility: TestCaseVisibility;
+  inputData?: string;
+  expectedOutput: string;
+  explanation?: string;
+  weight: number;
+  displayOrder: number;
+}
+
+export interface QuestionResponse {
+  id: string;
+  title: string;
+  status: QuestionStatus;
+  difficulty: Difficulty;
+  marks: number;
+  description: string;
+  exampleText?: string;
+  constraintsText?: string;
+  inputFormat?: string;
+  outputFormat?: string;
+  explanation?: string;
+  tags: string[];
+  topics: string[];
+  hints: string[];
+  timeLimitMs: number;
+  memoryLimitMb: number;
+  allowedLanguages: string[];
+  starterCodes: Record<string, string>;
+  testCases: QuestionTestCaseResponse[];
+  hiddenTestCaseCount: number;
+  usedInAssessmentCount: number;
+}
+
+export interface CreateTestCaseRequest {
+  visibility: TestCaseVisibility;
+  inputData?: string;
+  expectedOutput: string;
+  explanation?: string;
+  weight?: number;
+}
+
+export interface BulkImportTestCasesRequest {
+  testCases: CreateTestCaseRequest[];
+}
+
+export interface ReorderTestCasesRequest {
+  orderedTestCaseIds: string[];
 }

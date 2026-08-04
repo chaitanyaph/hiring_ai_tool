@@ -1,6 +1,6 @@
-import { Component, effect, signal } from '@angular/core';
+import { Component, computed, effect, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterOutlet } from '@angular/router';
+import { Router, RouterOutlet } from '@angular/router';
 import { AppStateService } from '../services/app-state.service';
 import { SidebarComponent } from '../../shared/components/sidebar.component';
 import { TopbarComponent } from '../../shared/components/topbar.component';
@@ -370,6 +370,14 @@ import { RoundType } from '../models/interview-management.model';
             </button>
           </div>
           <div class="modal-body">
+            <div class="field-full">
+              <label>Job</label>
+              <select [value]="state.assessmentModalJobId()" (change)="state.assessmentModalJobId.set($any($event.target).value)">
+                <option value="" disabled>Select a job</option>
+                <option *ngFor="let j of state.jobs()" [value]="j.id">{{ j.title }}</option>
+              </select>
+            </div>
+
             <div class="modal-tabs">
               <button [class.active]="assessTab() === 'coding'" (click)="assessTab.set('coding')">Coding assessment</button>
               <button [class.active]="assessTab() === 'mcq'" (click)="assessTab.set('mcq')">MCQ assessment</button>
@@ -400,6 +408,19 @@ import { RoundType } from '../models/interview-management.model';
                   </select>
                 </div>
                 <div class="field-full"><label>Time limit (min)</label><input type="number" value="60" #cTime></div>
+              </div>
+              <div class="field-full">
+                <label>Questions from the bank ({{ selectedQuestionIds().length }} selected, {{ selectedQuestionMarks() }} marks total)</label>
+                <div class="question-picker">
+                  <div *ngIf="!state.activeQuestionBank().length" class="field-hint">
+                    No active questions yet. <button type="button" style="background:none;border:none;color:var(--indigo);font-weight:600;cursor:pointer;padding:0;font-family:inherit;font-size:inherit;" (click)="state.closeModal(); router.navigate(['/recruiter/question-bank'])">Create some in the Question Bank</button> first.
+                  </div>
+                  <label *ngFor="let q of state.activeQuestionBank()" class="question-picker-row">
+                    <input type="checkbox" [checked]="isQuestionSelected(q.id)" (change)="toggleQuestion(q.id)">
+                    <span class="qp-title">{{ q.title }}</span>
+                    <span class="qp-meta">{{ q.difficulty }} &middot; {{ q.marks }} marks</span>
+                  </label>
+                </div>
               </div>
               <div class="stage-toggle-row">
                 <div><div class="st-name">Anti-cheat monitoring</div></div>
@@ -608,11 +629,26 @@ export class RecruiterLayoutComponent {
   langSQL = signal<boolean>(false);
   cAntiCheat = signal<boolean>(true);
   cPlagiarism = signal<boolean>(true);
+  selectedQuestionIds = signal<string[]>([]);
+  selectedQuestionMarks = computed(() =>
+    this.state.activeQuestionBank()
+      .filter((q) => this.selectedQuestionIds().includes(q.id))
+      .reduce((sum, q) => sum + q.marks, 0)
+  );
 
-  constructor(public state: AppStateService) {
+  constructor(public state: AppStateService, public router: Router) {
     effect(() => {
       if (this.state.activeModal() === 'job' && !this.isEditMode()) {
         this.resetJobWizard();
+      }
+    });
+    effect(() => {
+      if (this.state.activeModal() === 'assessment') {
+        this.selectedQuestionIds.set([]);
+        this.assessTab.set('coding');
+        if (!this.state.assessmentModalJobId()) {
+          this.state.assessmentModalJobId.set(this.state.jobs()[0]?.id ?? '');
+        }
       }
     });
     // Prefetch once per session so the invite modal's best-effort department
@@ -622,6 +658,17 @@ export class RecruiterLayoutComponent {
     this.state.loadDepartments();
     this.state.loadOffices();
     this.state.loadJobs();
+    this.state.loadActiveQuestionBank();
+  }
+
+  isQuestionSelected(questionId: string): boolean {
+    return this.selectedQuestionIds().includes(questionId);
+  }
+
+  toggleQuestion(questionId: string) {
+    this.selectedQuestionIds.update((ids) =>
+      ids.includes(questionId) ? ids.filter((id) => id !== questionId) : [...ids, questionId]
+    );
   }
 
   resetJobWizard() {
@@ -688,6 +735,15 @@ export class RecruiterLayoutComponent {
           { name: 'HR Interview', enabled: this.stageHr() },
         ],
         publish: this.publishMode() === 'publish',
+      }, (jobId) => {
+        // The "Coding assessment" stage was enabled but no assessment can be
+        // attached until the job (and its real ID) exists -- prompt for one
+        // immediately, pre-selecting the job that was just created.
+        if (this.stageCoding()) {
+          this.state.assessmentModalJobId.set(jobId);
+          this.state.showToast('Now set up the coding assessment for this job');
+          this.state.openModal('assessment');
+        }
       });
     }
   }
@@ -773,18 +829,17 @@ export class RecruiterLayoutComponent {
   }
 
   /**
-   * jobId: no job selector exists in this modal (same gap as the invite/shortlisting
-   * modals) -- defaults to the first open job. questionCount/passingScorePercent/
-   * totalMarks: CreateAssessmentRequest requires these but the wizard never collects
-   * them, so reasonable defaults are used (2 questions matching the candidate exam's
-   * own hardcoded 2-question flow, 60% passing, 100 total marks) -- flagged here since
-   * they're not real user input, not because it's a fabricated feature.
+   * jobId comes from the "Job" selector added to this modal (state.assessmentModalJobId) --
+   * preset to the newly created job right after the job wizard when its "Coding assessment"
+   * stage is enabled, otherwise defaulted to the first job and changeable here.
+   * questionCount/totalMarks come from the question-bank picker when questions are selected;
+   * MCQ has no question bank yet, so it keeps its own placeholder defaults (100 total marks).
    */
   submitAssessment(
     cName: HTMLInputElement, cDiff: HTMLSelectElement, cTime: HTMLInputElement,
     mName: HTMLInputElement, mCat: HTMLSelectElement, mCount: HTMLInputElement, mTime: HTMLInputElement
   ) {
-    const jobId = this.state.jobs()[0]?.id;
+    const jobId = this.state.assessmentModalJobId() || this.state.jobs()[0]?.id;
     if (!jobId) {
       this.state.showToast('No job available to attach this assessment to.');
       return;
@@ -798,6 +853,9 @@ export class RecruiterLayoutComponent {
       if (this.langCpp()) languages.push(ProgrammingLanguage.CPP);
       if (this.langSQL()) languages.push(ProgrammingLanguage.SQL);
 
+      const questionIds = this.selectedQuestionIds();
+      const totalMarks = questionIds.length ? this.selectedQuestionMarks() : 100;
+
       this.state.createCodingAssessment({
         name: cName.value,
         jobId,
@@ -805,11 +863,12 @@ export class RecruiterLayoutComponent {
         allowedLanguages: languages.length ? languages : [ProgrammingLanguage.JAVA],
         difficulty: cDiff.value as Difficulty,
         durationMinutes: Number(cTime.value) || 60,
-        questionCount: 2,
+        questionCount: questionIds.length || 2,
         passingScorePercent: 60,
-        totalMarks: 100,
+        totalMarks: totalMarks || 100,
         antiCheatMonitoring: this.cAntiCheat(),
         plagiarismDetection: this.cPlagiarism(),
+        questionIds: questionIds.length ? questionIds : undefined,
       }).subscribe({
         next: () => this.state.closeModal(),
         error: (err) => this.state.showToast(err?.error?.message ?? 'Could not create this assessment.'),
