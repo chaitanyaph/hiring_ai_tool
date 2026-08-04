@@ -740,9 +740,16 @@ export class RecruiterLayoutComponent {
         // attached until the job (and its real ID) exists -- prompt for one
         // immediately, pre-selecting the job that was just created.
         if (this.stageCoding()) {
-          this.state.assessmentModalJobId.set(jobId);
           this.state.showToast('Now set up the coding assessment for this job');
           this.state.openModal('assessment');
+          // Deferred one tick: the job <select>'s [value] binding is written
+          // before its *ngFor <option>s are patched into the DOM within the
+          // same render pass, so setting this in the same synchronous flow as
+          // openModal() assigns a value with no matching <option> yet -- the
+          // browser drops it silently and Angular never re-applies it since
+          // the bound value doesn't change afterward. Waiting a tick lets the
+          // option list (already refreshed via loadJobs() above) render first.
+          setTimeout(() => this.state.assessmentModalJobId.set(jobId));
         }
       });
     }
