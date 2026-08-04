@@ -36,7 +36,7 @@ public class ApplicationEventConsumer {
     @KafkaListener(topics = KafkaTopics.RESUME_MATCHED, groupId = "application-service-group")
     public void onResumeMatched(ResumeMatchedEvent event) {
         try {
-            lifecycleEventService.handleResumeMatched(event.getApplicationId(), event.getMatchScore());
+            lifecycleEventService.handleResumeMatched(event.getApplicationId(), event.getOverallMatchScore());
         } catch (Exception e) {
             log.error("Failed to process ResumeMatched for application {}: {}", event.getApplicationId(), e.getMessage(), e);
         }

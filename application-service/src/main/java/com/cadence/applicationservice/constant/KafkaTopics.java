@@ -13,8 +13,15 @@ public final class KafkaTopics {
     public static final String OFFER_REJECTED = "application.offer.rejected";
 
     // ---- Consumed -- owned/published by other (future) services ----
+    // RESUME_PARSED intentionally left pointing at the never-implemented placeholder
+    // name: resume-parser-service's actual ResumeParsedEvent has no applicationId at
+    // all (parsing is scoped to a resume, not a specific application), so this listener
+    // can never resolve an application from it regardless of topic name -- see
+    // handleResumeMatched(), which now performs the full RESUME_PARSING -> RESUME_PARSED
+    // -> AI_MATCHING -> AI_MATCHED transition itself off the one event that actually
+    // carries an applicationId and a score.
     public static final String RESUME_PARSED = "resume.resume.parsed";
-    public static final String RESUME_MATCHED = "matching.resume.matched";
+    public static final String RESUME_MATCHED = "resume-parser.resume.analyzed";
     public static final String CANDIDATE_SHORTLISTED = "shortlisting.candidate.shortlisted";
     public static final String INTERVIEW_COMPLETED = "interview.interview.completed";
     public static final String CODING_ASSESSMENT_COMPLETED = "assessment.coding.completed";

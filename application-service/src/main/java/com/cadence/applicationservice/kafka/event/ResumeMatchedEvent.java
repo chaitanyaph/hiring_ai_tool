@@ -4,7 +4,12 @@ import lombok.*;
 
 import java.util.UUID;
 
-/** Consumed -- published by the (future) Resume Matching Service with the computed match score (0-100). */
+/**
+ * Consumed -- published by resume-parser-service as ResumeAnalyzedEvent on topic
+ * resume-parser.resume.analyzed. Field names here must match that event's JSON
+ * shape exactly (overallMatchScore, not matchScore) -- Jackson binds by property
+ * name, and a mismatch here silently deserializes to null rather than failing loudly.
+ */
 @Getter
 @Setter
 @NoArgsConstructor
@@ -12,5 +17,5 @@ import java.util.UUID;
 @Builder
 public class ResumeMatchedEvent {
     private UUID applicationId;
-    private Integer matchScore;
+    private Integer overallMatchScore;
 }

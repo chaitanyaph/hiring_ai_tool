@@ -388,7 +388,18 @@ public class ApplicationServiceImpl implements ApplicationService, ApplicationLi
             log.warn("ResumeMatched event for unknown application {}", applicationId);
             return;
         }
-        if (application.getCurrentStatus() != ApplicationStatus.AI_MATCHING) {
+        // Performs the full RESUME_PARSING -> RESUME_PARSED -> AI_MATCHING -> AI_MATCHED
+        // chain here rather than relying on a separate ResumeParsed event to advance
+        // through the middle two steps first: resume-parser-service's actual
+        // ResumeParsedEvent has no applicationId at all (parsing is scoped to a resume,
+        // not a specific application), so a listener keyed on applicationId can never
+        // resolve it. This event -- the one resume-parser-service actually finishes
+        // match analysis with -- is the only one that carries both applicationId and a
+        // score, and by construction can't fire until parsing has already completed.
+        if (application.getCurrentStatus() == ApplicationStatus.RESUME_PARSING) {
+            transitionStatus(application, ApplicationStatus.RESUME_PARSED, null, "Resume parsed");
+            transitionStatus(application, ApplicationStatus.AI_MATCHING, null, "Resume matching started automatically");
+        } else if (application.getCurrentStatus() != ApplicationStatus.AI_MATCHING) {
             log.warn("Ignoring ResumeMatched for application {} in unexpected status {}", applicationId, application.getCurrentStatus());
             return;
         }
