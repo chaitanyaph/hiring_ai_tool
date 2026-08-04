@@ -423,9 +423,9 @@ export class AppStateService {
 
   // ---- Jobs actions (job-service) ----
 
-  loadJobs() {
+  loadJobs(onLoaded?: () => void) {
     this.jobService.search({}).subscribe({
-      next: (res) => this.jobs.set(res.data.content.map(jobSummaryToJob)),
+      next: (res) => { this.jobs.set(res.data.content.map(jobSummaryToJob)); onLoaded?.(); },
       error: () => this.showToast('Could not load jobs.'),
     });
   }
@@ -518,10 +518,13 @@ export class AppStateService {
       )
       .subscribe({
         next: (res) => {
-          this.loadJobs();
           this.showToast(params.publish ? 'Job published' : 'Job saved as draft');
           this.closeModal();
-          onCreated?.(res.data.id);
+          // onCreated (which may immediately open the assessment modal's job picker)
+          // must wait for the jobs list to actually include the new job, or the
+          // picker's <select> can't find a matching <option> and silently fails
+          // to select it.
+          this.loadJobs(() => onCreated?.(res.data.id));
         },
         error: (err) => this.showToast(err?.error?.message ?? 'Could not save this job.'),
       });
