@@ -1,5 +1,6 @@
 package com.cadence.applicationservice.kafka.consumer;
 
+import com.cadence.applicationservice.constant.InterviewType;
 import com.cadence.applicationservice.constant.KafkaTopics;
 import com.cadence.applicationservice.kafka.event.*;
 import com.cadence.applicationservice.service.ApplicationLifecycleEventService;
@@ -57,6 +58,23 @@ public class ApplicationEventConsumer {
             lifecycleEventService.handleInterviewCompleted(event.getApplicationId(), event.getInterviewType(), event.getScore(), event.getFeedback());
         } catch (Exception e) {
             log.error("Failed to process InterviewCompleted for application {}: {}", event.getApplicationId(), e.getMessage(), e);
+        }
+    }
+
+    /**
+     * ai-interview-service's own InterviewCompletedEvent only signals "the session
+     * ended", with no score -- this one (InterviewEvaluatedEvent, a separate topic)
+     * is what actually carries the AI interview's score. Reuses the existing
+     * handleInterviewCompleted(..., InterviewType.AI, ...) transition logic, which
+     * was already correct but never reachable since nothing published to it in the
+     * shape that method expected.
+     */
+    @KafkaListener(topics = KafkaTopics.INTERVIEW_EVALUATED, groupId = "application-service-group")
+    public void onInterviewEvaluated(InterviewEvaluatedEvent event) {
+        try {
+            lifecycleEventService.handleInterviewCompleted(event.getApplicationId(), InterviewType.AI, event.getOverallScore(), null);
+        } catch (Exception e) {
+            log.error("Failed to process InterviewEvaluated for application {}: {}", event.getApplicationId(), e.getMessage(), e);
         }
     }
 

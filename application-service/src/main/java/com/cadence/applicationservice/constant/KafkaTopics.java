@@ -22,7 +22,12 @@ public final class KafkaTopics {
     // carries an applicationId and a score.
     public static final String RESUME_PARSED = "resume.resume.parsed";
     public static final String RESUME_MATCHED = "resume-parser.resume.analyzed";
-    public static final String CANDIDATE_SHORTLISTED = "shortlisting.candidate.shortlisted";
+    public static final String CANDIDATE_SHORTLISTED = "ai-interview.candidate.shortlisted";
+    // ai-interview-service's own InterviewEvaluatedEvent (real AI-interview score,
+    // published on "ai-interview.interview.evaluated") -- distinct from
+    // INTERVIEW_COMPLETED below, which is interview-management-service's correctly-
+    // wired topic for TECHNICAL/MANAGER/HR rounds. Do not merge these two.
+    public static final String INTERVIEW_EVALUATED = "ai-interview.interview.evaluated";
     public static final String INTERVIEW_COMPLETED = "interview.interview.completed";
     public static final String CODING_ASSESSMENT_COMPLETED = "assessment.coding.completed";
     public static final String BACKGROUND_VERIFICATION_COMPLETED = "verification.background.completed";
