@@ -25,7 +25,11 @@ public interface NotificationOrchestrationService {
 
     void handleCandidateShortlisted(CandidateShortlistedEvent event);
 
+    void handleAiInterviewInvited(AiInterviewInvitedEvent event);
+
     void handleAiInterviewCompleted(AiInterviewCompletedEvent event);
+
+    void handleCodingAssessmentInvited(CodingAssessmentInvitedEvent event);
 
     void handleCodingAssessmentCompleted(CodingAssessmentCompletedEvent event);
 

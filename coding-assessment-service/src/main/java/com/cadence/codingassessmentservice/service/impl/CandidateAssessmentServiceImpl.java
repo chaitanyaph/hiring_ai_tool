@@ -7,6 +7,7 @@ import com.cadence.codingassessmentservice.exception.AssessmentConflictException
 import com.cadence.codingassessmentservice.exception.ErrorCode;
 import com.cadence.codingassessmentservice.exception.ResourceNotFoundException;
 import com.cadence.codingassessmentservice.kafka.event.AssessmentStartedEvent;
+import com.cadence.codingassessmentservice.kafka.event.CodingAssessmentInvitedEvent;
 import com.cadence.codingassessmentservice.kafka.producer.CodingAssessmentEventProducer;
 import com.cadence.codingassessmentservice.repository.*;
 import com.cadence.codingassessmentservice.service.CandidateAssessmentService;
@@ -36,6 +37,7 @@ import java.util.UUID;
 public class CandidateAssessmentServiceImpl implements CandidateAssessmentService {
 
     private final CandidateAssessmentRepository candidateAssessmentRepository;
+    private final AssessmentRepository assessmentRepository;
     private final CandidateQuestionProgressRepository progressRepository;
     private final AssessmentQuestionRepository assessmentQuestionRepository;
     private final QuestionRepository questionRepository;
@@ -48,6 +50,9 @@ public class CandidateAssessmentServiceImpl implements CandidateAssessmentServic
 
     @Value("${coding-assessment.session.default-invitation-ttl-hours:168}")
     private int ttlHours;
+
+    @Value("${cadence.frontend-base-url}")
+    private String frontendBaseUrl;
 
     @Override
     @Transactional
@@ -64,6 +69,16 @@ public class CandidateAssessmentServiceImpl implements CandidateAssessmentServic
         }
         ca = candidateAssessmentRepository.save(ca);
         seedQuestionProgress(ca.getId(), assessmentId);
+
+        Assessment assessment = assessmentRepository.findById(assessmentId).orElse(null);
+        eventProducer.publishCodingAssessmentInvited(CodingAssessmentInvitedEvent.builder()
+                .applicationId(applicationId).jobId(jobId).candidateId(candidateId)
+                .assessmentName(assessment != null ? assessment.getName() : null)
+                .durationMinutes(assessment != null ? assessment.getDurationMinutes() : null)
+                .passingScorePercent(assessment != null ? assessment.getPassingScorePercent() : null)
+                .assessmentLink(frontendBaseUrl + "/candidate/coding-assessments/" + ca.getId())
+                .expiresAt(ca.getExpiresAt())
+                .occurredAt(LocalDateTime.now()).build());
     }
 
     @Override

@@ -777,7 +777,7 @@ export class RecruiterLayoutComponent {
     const durationMinutes = parseInt(duration, 10) || 60;
 
     if (type === 'AI Interview') {
-      this.state.startAiInterviewInvite(app.id, app.jobId, app.candidateId);
+      this.state.startAiInterviewInvite(app.id, app.jobId);
       this.state.closeModal();
       return;
     }

@@ -46,7 +46,7 @@ public class ApplicationEventConsumer {
     @KafkaListener(topics = KafkaTopics.CANDIDATE_SHORTLISTED, groupId = "application-service-group")
     public void onCandidateShortlisted(CandidateShortlistedEvent event) {
         try {
-            lifecycleEventService.handleCandidateShortlisted(event.getApplicationId());
+            lifecycleEventService.handleCandidateShortlisted(event.getApplicationId(), event.getDecision(), event.getOverallMatchScore());
         } catch (Exception e) {
             log.error("Failed to process CandidateShortlisted for application {}: {}", event.getApplicationId(), e.getMessage(), e);
         }

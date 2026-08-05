@@ -21,7 +21,9 @@ public final class KafkaTopics {
     public static final String RESUME_UPLOADED = "resume.resume.uploaded";
     public static final String RESUME_ANALYZED = "resume-parser.resume.analyzed";
     public static final String CANDIDATE_SHORTLISTED = "ai-interview.candidate.shortlisted";
+    public static final String AI_INTERVIEW_INVITED = "ai-interview.interview.invited";
     public static final String AI_INTERVIEW_COMPLETED = "ai-interview.interview.completed";
+    public static final String CODING_ASSESSMENT_INVITED = "assessment.coding.invited";
     public static final String CODING_ASSESSMENT_COMPLETED = "assessment.coding.completed";
     public static final String INTERVIEW_SCHEDULED = "interview-management.interview.scheduled";
     public static final String INTERVIEW_RESCHEDULED = "interview-management.interview.rescheduled";

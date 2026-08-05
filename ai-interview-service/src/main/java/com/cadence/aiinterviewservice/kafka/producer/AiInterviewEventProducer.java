@@ -31,6 +31,11 @@ public class AiInterviewEventProducer {
     }
 
     @Async
+    public void publishAiInterviewInvited(AiInterviewInvitedEvent event) {
+        publish(KafkaTopics.INTERVIEW_INVITED, event.getApplicationId().toString(), event);
+    }
+
+    @Async
     public void publishInterviewStarted(InterviewStartedEvent event) {
         publish(KafkaTopics.INTERVIEW_STARTED, event.getApplicationId().toString(), event);
     }

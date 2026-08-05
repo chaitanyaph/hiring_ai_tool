@@ -93,10 +93,9 @@ export class AiInterviewService {
     return this.http.get<ApiResponse<InterviewEvaluationReportResponse>>(`${BASE_URL}/${applicationId}/report`);
   }
 
-  start(applicationId: string, jobId: string, candidateId: string): Observable<ApiResponse<void>> {
-    return this.http.post<ApiResponse<void>>(`${BASE_URL}/${applicationId}/start`, null, {
-      params: new HttpParams().set('jobId', jobId).set('candidateId', candidateId),
-    });
+  /** jobId/candidateId are resolved server-side from the shortlist record -- the backend no longer accepts them as params. */
+  start(applicationId: string): Observable<ApiResponse<void>> {
+    return this.http.post<ApiResponse<void>>(`${BASE_URL}/${applicationId}/start`, null);
   }
 
   sendReminder(applicationId: string): Observable<ApiResponse<void>> {

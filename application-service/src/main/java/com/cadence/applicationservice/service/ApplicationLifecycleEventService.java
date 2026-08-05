@@ -1,6 +1,7 @@
 package com.cadence.applicationservice.service;
 
 import com.cadence.applicationservice.constant.InterviewType;
+import com.cadence.applicationservice.constant.ShortlistDecision;
 
 import java.util.UUID;
 
@@ -19,7 +20,7 @@ public interface ApplicationLifecycleEventService {
 
     void handleResumeMatched(UUID applicationId, Integer matchScore);
 
-    void handleCandidateShortlisted(UUID applicationId);
+    void handleCandidateShortlisted(UUID applicationId, ShortlistDecision decision, Integer overallMatchScore);
 
     void handleInterviewCompleted(UUID applicationId, InterviewType interviewType, Integer score, String feedback);
 

@@ -12,6 +12,7 @@ import com.cadence.applicationservice.constant.ApplicationStatus;
 import com.cadence.applicationservice.constant.InterviewType;
 import com.cadence.applicationservice.constant.PlatformRole;
 import com.cadence.applicationservice.constant.ScoreType;
+import com.cadence.applicationservice.constant.ShortlistDecision;
 import com.cadence.applicationservice.dto.request.*;
 import com.cadence.applicationservice.dto.response.*;
 import com.cadence.applicationservice.entity.*;
@@ -413,20 +414,32 @@ public class ApplicationServiceImpl implements ApplicationService, ApplicationLi
 
     @Override
     @Transactional
-    public void handleCandidateShortlisted(UUID applicationId) {
+    public void handleCandidateShortlisted(UUID applicationId, ShortlistDecision decision, Integer overallMatchScore) {
         Application application = applicationRepository.findById(applicationId).orElse(null);
         if (application == null) {
             log.warn("CandidateShortlisted event for unknown application {}", applicationId);
             return;
         }
-        if (application.getCurrentStatus() != ApplicationStatus.AI_MATCHED) {
+        // AI_MATCHED: the initial automatic decision. MANUAL_REVIEW: a recruiter
+        // resolving an earlier hold -- ai-interview-service republishes this same
+        // event (with SHORTLISTED or REJECTED) when a recruiter acts on the
+        // manual-review queue, so this must accept both starting states.
+        if (application.getCurrentStatus() != ApplicationStatus.AI_MATCHED
+                && application.getCurrentStatus() != ApplicationStatus.MANUAL_REVIEW) {
             log.warn("Ignoring CandidateShortlisted for application {} in unexpected status {}", applicationId, application.getCurrentStatus());
             return;
         }
-        transitionStatus(application, ApplicationStatus.SHORTLISTED, null, "Shortlisted by AI Shortlisting Service");
-        transitionStatus(application, ApplicationStatus.AI_INTERVIEW_PENDING, null, "AI interview invitation triggered automatically");
+        String scoreSuffix = overallMatchScore != null ? " (score " + overallMatchScore + ")" : "";
+        switch (decision) {
+            case SHORTLISTED -> {
+                transitionStatus(application, ApplicationStatus.SHORTLISTED, null, "Shortlisted by AI Shortlisting Service" + scoreSuffix);
+                transitionStatus(application, ApplicationStatus.AI_INTERVIEW_PENDING, null, "AI interview invitation triggered automatically");
+            }
+            case REJECTED -> transitionStatus(application, ApplicationStatus.REJECTED, null, "AI screening did not recommend this candidate to proceed" + scoreSuffix);
+            case MANUAL_REVIEW -> transitionStatus(application, ApplicationStatus.MANUAL_REVIEW, null, "AI screening flagged this application for manual recruiter review" + scoreSuffix);
+        }
         applicationRepository.save(application);
-        recordConsumedEvent(applicationId, "CandidateShortlisted", Map.of());
+        recordConsumedEvent(applicationId, "CandidateShortlisted", Map.of("decision", decision.name()));
     }
 
     @Override

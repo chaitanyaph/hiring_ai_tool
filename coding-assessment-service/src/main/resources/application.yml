@@ -4,6 +4,9 @@ server:
     include-message: always
     include-binding-errors: always
 
+cadence:
+  frontend-base-url: ${FRONTEND_BASE_URL:https://hirepilot.duckdns.org}
+
 spring:
   application:
     name: coding-assessment-service

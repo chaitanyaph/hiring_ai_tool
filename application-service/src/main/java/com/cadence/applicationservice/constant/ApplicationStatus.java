@@ -19,6 +19,7 @@ public enum ApplicationStatus {
     RESUME_PARSED,
     AI_MATCHING,
     AI_MATCHED,
+    MANUAL_REVIEW,
     SHORTLISTED,
     AI_INTERVIEW_PENDING,
     AI_INTERVIEW_COMPLETED,
@@ -61,6 +62,7 @@ public enum ApplicationStatus {
             Map.entry(RESUME_PARSED, ApplicationStage.AI_RESUME_SCREENING),
             Map.entry(AI_MATCHING, ApplicationStage.AI_RESUME_SCREENING),
             Map.entry(AI_MATCHED, ApplicationStage.AI_RESUME_SCREENING),
+            Map.entry(MANUAL_REVIEW, ApplicationStage.AI_RESUME_SCREENING),
             Map.entry(SHORTLISTED, ApplicationStage.AI_RESUME_SCREENING),
             Map.entry(AI_INTERVIEW_PENDING, ApplicationStage.AI_INTERVIEW),
             Map.entry(AI_INTERVIEW_COMPLETED, ApplicationStage.AI_INTERVIEW),
@@ -104,6 +106,12 @@ public enum ApplicationStatus {
             return isWithdrawable();
         }
         if (this == OFFER_RELEASED && (target == OFFER_ACCEPTED || target == OFFER_DECLINED)) {
+            return true;
+        }
+        if (this == AI_MATCHED && target == MANUAL_REVIEW) {
+            return true;
+        }
+        if (this == MANUAL_REVIEW && target == SHORTLISTED) {
             return true;
         }
         return LINEAR_NEXT.get(this) == target;

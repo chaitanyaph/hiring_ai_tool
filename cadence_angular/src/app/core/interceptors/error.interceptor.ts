@@ -8,6 +8,18 @@ import { TokenRefreshStateService } from '../services/token-refresh-state.servic
 import { TokenStorageService } from '../services/token-storage.service';
 
 const AUTH_ENDPOINT_SEGMENT = '/api/v1/auth/';
+/**
+ * Endpoints under /api/v1/auth/ that DO require (and can benefit from
+ * refreshing) a valid access token -- everything else in that segment
+ * (login/register/refresh-token/mfa/oauth2/forgot-password/reset-password/
+ * resend-verification/verify-email) is anonymous or its own credential
+ * exchange, where a 401 means "wrong input," not "your access token
+ * expired," so retrying after a refresh would never help. Excluding the
+ * whole /auth/ segment (the previous check) meant a stale token on /me,
+ * /change-password, or /logout skipped the refresh entirely instead of
+ * silently recovering.
+ */
+const AUTHENTICATED_AUTH_PATHS = ['/me', '/change-password', '/logout'];
 
 /**
  * Global error handling: 401 triggers a single-flight token refresh + retry
@@ -24,9 +36,12 @@ export const errorInterceptor: HttpInterceptorFn = (req, next) => {
       }
 
       if (error.status === 401) {
-        if (req.url.includes(AUTH_ENDPOINT_SEGMENT)) {
-          // A 401 straight from the auth endpoints themselves (bad credentials,
-          // expired/invalid refresh token) means refreshing won't help.
+        const isAnonymousAuthEndpoint = req.url.includes(AUTH_ENDPOINT_SEGMENT)
+          && !AUTHENTICATED_AUTH_PATHS.some((path) => req.url.endsWith(path));
+        if (isAnonymousAuthEndpoint) {
+          // A 401 straight from an anonymous/credential-exchange auth endpoint
+          // (bad credentials, expired/invalid refresh token) means refreshing
+          // won't help.
           return throwError(() => error);
         }
         return handleUnauthorized(req, next, error);

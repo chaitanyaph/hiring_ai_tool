@@ -5,6 +5,8 @@ import com.cadence.aiinterviewservice.constants.InterviewMode;
 import com.cadence.aiinterviewservice.constants.InterviewSessionStatus;
 import com.cadence.aiinterviewservice.dto.request.AnswerRequest;
 import com.cadence.aiinterviewservice.dto.response.InterviewQuestionResponse;
+import com.cadence.aiinterviewservice.constants.ShortlistDecision;
+import com.cadence.aiinterviewservice.entity.CandidateShortlist;
 import com.cadence.aiinterviewservice.entity.InterviewAnswer;
 import com.cadence.aiinterviewservice.entity.InterviewQuestion;
 import com.cadence.aiinterviewservice.entity.InterviewRecommendation;
@@ -48,6 +50,7 @@ class InterviewSessionServiceImplTest {
     @Mock private InterviewAnswerRepository interviewAnswerRepository;
     @Mock private InterviewRecommendationRepository interviewRecommendationRepository;
     @Mock private InterviewLogRepository interviewLogRepository;
+    @Mock private CandidateShortlistRepository candidateShortlistRepository;
     @Mock private JobServiceClient jobServiceClient;
     @Mock private ResumeParserServiceClient resumeParserServiceClient;
     @Mock private AIInterviewProviderFactory providerFactory;
@@ -66,6 +69,7 @@ class InterviewSessionServiceImplTest {
     void setUp() {
         ReflectionTestUtils.setField(interviewSessionService, "defaultQuestionCount", 8);
         ReflectionTestUtils.setField(interviewSessionService, "ttlHours", 72);
+        ReflectionTestUtils.setField(interviewSessionService, "frontendBaseUrl", "https://hirepilot.duckdns.org");
         applicationId = UUID.randomUUID();
         jobId = UUID.randomUUID();
         candidateId = UUID.randomUUID();
@@ -75,9 +79,12 @@ class InterviewSessionServiceImplTest {
 
     @Test
     void inviteCandidate_shouldCreateNotStartedSession_whenNoneExists() {
+        CandidateShortlist shortlist = CandidateShortlist.builder()
+                .applicationId(applicationId).jobId(jobId).candidateId(candidateId).decision(ShortlistDecision.SHORTLISTED).build();
+        when(candidateShortlistRepository.findByApplicationId(applicationId)).thenReturn(Optional.of(shortlist));
         when(interviewSessionRepository.findByApplicationId(applicationId)).thenReturn(Optional.empty());
 
-        interviewSessionService.inviteCandidate(applicationId, jobId, candidateId);
+        interviewSessionService.inviteCandidate(applicationId);
 
         verify(interviewSessionRepository).save(argThat(s -> s.getStatus() == InterviewSessionStatus.NOT_STARTED
                 && s.getApplicationId().equals(applicationId) && s.getInvitedAt() != null && s.getExpiresAt() != null));
@@ -89,7 +96,7 @@ class InterviewSessionServiceImplTest {
                 .status(InterviewSessionStatus.IN_PROGRESS).totalQuestions(8).build();
         when(interviewSessionRepository.findByApplicationId(applicationId)).thenReturn(Optional.of(session));
 
-        assertThatThrownBy(() -> interviewSessionService.startInterview(applicationId, InterviewMode.CHAT))
+        assertThatThrownBy(() -> interviewSessionService.startInterview(applicationId, candidateId, InterviewMode.CHAT))
                 .isInstanceOf(InterviewConflictException.class);
         verifyNoInteractions(providerFactory);
     }
@@ -101,7 +108,7 @@ class InterviewSessionServiceImplTest {
                 .expiresAt(LocalDateTime.now().minusHours(1)).build();
         when(interviewSessionRepository.findByApplicationId(applicationId)).thenReturn(Optional.of(session));
 
-        assertThatThrownBy(() -> interviewSessionService.startInterview(applicationId, InterviewMode.CHAT))
+        assertThatThrownBy(() -> interviewSessionService.startInterview(applicationId, candidateId, InterviewMode.CHAT))
                 .isInstanceOf(InterviewConflictException.class);
         assertThat(session.getStatus()).isEqualTo(InterviewSessionStatus.EXPIRED);
     }
@@ -116,7 +123,7 @@ class InterviewSessionServiceImplTest {
         when(providerFactory.getActiveProvider()).thenReturn(provider);
         when(provider.generateNextQuestion(any())).thenReturn(new GeneratedQuestion("Tell me about yourself."));
 
-        InterviewQuestionResponse response = interviewSessionService.startInterview(applicationId, InterviewMode.CHAT);
+        InterviewQuestionResponse response = interviewSessionService.startInterview(applicationId, candidateId, InterviewMode.CHAT);
 
         assertThat(session.getStatus()).isEqualTo(InterviewSessionStatus.IN_PROGRESS);
         assertThat(session.getMode()).isEqualTo(InterviewMode.CHAT);
@@ -134,7 +141,7 @@ class InterviewSessionServiceImplTest {
 
         AnswerRequest request = AnswerRequest.builder().applicationId(applicationId).questionId(UUID.randomUUID()).answerText("x").build();
 
-        assertThatThrownBy(() -> interviewSessionService.submitAnswer(applicationId, request))
+        assertThatThrownBy(() -> interviewSessionService.submitAnswer(applicationId, candidateId, request))
                 .isInstanceOf(InterviewConflictException.class);
     }
 
@@ -154,7 +161,7 @@ class InterviewSessionServiceImplTest {
 
         AnswerRequest request = AnswerRequest.builder().applicationId(applicationId).questionId(questionId).answerText("x").build();
 
-        assertThatThrownBy(() -> interviewSessionService.submitAnswer(applicationId, request))
+        assertThatThrownBy(() -> interviewSessionService.submitAnswer(applicationId, candidateId, request))
                 .isInstanceOf(InterviewConflictException.class);
     }
 
@@ -177,7 +184,7 @@ class InterviewSessionServiceImplTest {
         when(provider.generateNextQuestion(any())).thenReturn(new GeneratedQuestion("Next question."));
 
         AnswerRequest request = AnswerRequest.builder().applicationId(applicationId).questionId(questionId).answerText("My answer").build();
-        InterviewQuestionResponse response = interviewSessionService.submitAnswer(applicationId, request);
+        InterviewQuestionResponse response = interviewSessionService.submitAnswer(applicationId, candidateId, request);
 
         assertThat(session.getCurrentQuestionIndex()).isEqualTo(1);
         assertThat(response.isInterviewCompleted()).isFalse();
@@ -201,7 +208,7 @@ class InterviewSessionServiceImplTest {
         when(interviewAnswerRepository.findByQuestionId(questionId)).thenReturn(Optional.empty());
 
         AnswerRequest request = AnswerRequest.builder().applicationId(applicationId).questionId(questionId).answerText("Final answer").build();
-        InterviewQuestionResponse response = interviewSessionService.submitAnswer(applicationId, request);
+        InterviewQuestionResponse response = interviewSessionService.submitAnswer(applicationId, candidateId, request);
 
         assertThat(session.getStatus()).isEqualTo(InterviewSessionStatus.COMPLETED);
         assertThat(response.isInterviewCompleted()).isTrue();

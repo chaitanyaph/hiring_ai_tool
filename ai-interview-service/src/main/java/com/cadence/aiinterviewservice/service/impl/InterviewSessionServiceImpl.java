@@ -17,6 +17,7 @@ import com.cadence.aiinterviewservice.feign.dto.JobDetailDto;
 import com.cadence.aiinterviewservice.feign.dto.JobSkillDto;
 import com.cadence.aiinterviewservice.feign.dto.MatchedSkillDto;
 import com.cadence.aiinterviewservice.feign.dto.ResumeMatchDto;
+import com.cadence.aiinterviewservice.kafka.event.AiInterviewInvitedEvent;
 import com.cadence.aiinterviewservice.kafka.event.CandidateRecommendedEvent;
 import com.cadence.aiinterviewservice.kafka.event.InterviewCompletedEvent;
 import com.cadence.aiinterviewservice.kafka.event.InterviewStartedEvent;
@@ -26,6 +27,8 @@ import com.cadence.aiinterviewservice.provider.GeneratedQuestion;
 import com.cadence.aiinterviewservice.provider.InterviewQuestionContext;
 import com.cadence.aiinterviewservice.provider.JobContextSnapshot;
 import com.cadence.aiinterviewservice.provider.QaPair;
+import com.cadence.aiinterviewservice.entity.CandidateShortlist;
+import com.cadence.aiinterviewservice.repository.CandidateShortlistRepository;
 import com.cadence.aiinterviewservice.repository.InterviewAnswerRepository;
 import com.cadence.aiinterviewservice.repository.InterviewLogRepository;
 import com.cadence.aiinterviewservice.repository.InterviewQuestionRepository;
@@ -76,6 +79,7 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
     private final InterviewAnswerRepository interviewAnswerRepository;
     private final InterviewRecommendationRepository interviewRecommendationRepository;
     private final InterviewLogRepository interviewLogRepository;
+    private final CandidateShortlistRepository candidateShortlistRepository;
 
     private final JobServiceClient jobServiceClient;
     private final ResumeParserServiceClient resumeParserServiceClient;
@@ -89,12 +93,17 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
     @Value("${ai-interview.session.ttl-hours:72}")
     private int ttlHours;
 
+    @Value("${cadence.frontend-base-url}")
+    private String frontendBaseUrl;
+
     @Override
     @Transactional
-    public void inviteCandidate(UUID applicationId, UUID jobId, UUID candidateId) {
+    public void inviteCandidate(UUID applicationId) {
+        CandidateShortlist shortlist = candidateShortlistRepository.findByApplicationId(applicationId)
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.SHORTLIST_NOT_FOUND, "No shortlist record found for application " + applicationId));
         InterviewSession session = interviewSessionRepository.findByApplicationId(applicationId)
                 .orElseGet(() -> InterviewSession.builder()
-                        .applicationId(applicationId).jobId(jobId).candidateId(candidateId)
+                        .applicationId(applicationId).jobId(shortlist.getJobId()).candidateId(shortlist.getCandidateId())
                         .totalQuestions(defaultQuestionCount)
                         .status(InterviewSessionStatus.NOT_STARTED)
                         .build());
@@ -103,8 +112,9 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
         if (session.getStatus() == InterviewSessionStatus.EXPIRED) {
             session.setStatus(InterviewSessionStatus.NOT_STARTED);
         }
-        interviewSessionRepository.save(session);
+        session = interviewSessionRepository.save(session);
         writeLog(session, LogLevel.INFO, "Interview invitation sent to candidate");
+        publishInvited(session);
     }
 
     @Override
@@ -129,14 +139,15 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
         session.setStatus(InterviewSessionStatus.NOT_STARTED);
         session.setInvitedAt(LocalDateTime.now());
         session.setExpiresAt(LocalDateTime.now().plusHours(ttlHours));
-        interviewSessionRepository.save(session);
+        session = interviewSessionRepository.save(session);
         writeLog(session, LogLevel.INFO, "Interview invitation resent");
+        publishInvited(session);
     }
 
     @Override
     @Transactional
-    public InterviewQuestionResponse startInterview(UUID applicationId, InterviewMode mode) {
-        InterviewSession session = findByApplicationIdOrThrow(applicationId);
+    public InterviewQuestionResponse startInterview(UUID applicationId, UUID candidateId, InterviewMode mode) {
+        InterviewSession session = findByApplicationIdForCandidateOrThrow(applicationId, candidateId);
         expireIfPastDeadline(session);
         if (session.getStatus() != InterviewSessionStatus.NOT_STARTED) {
             throw new InterviewConflictException(ErrorCode.INTERVIEW_ALREADY_STARTED, "This interview has already been started or completed");
@@ -158,8 +169,8 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
 
     @Override
     @Transactional
-    public InterviewQuestionResponse submitAnswer(UUID applicationId, AnswerRequest request) {
-        InterviewSession session = findByApplicationIdOrThrow(applicationId);
+    public InterviewQuestionResponse submitAnswer(UUID applicationId, UUID candidateId, AnswerRequest request) {
+        InterviewSession session = findByApplicationIdForCandidateOrThrow(applicationId, candidateId);
         if (session.getStatus() != InterviewSessionStatus.IN_PROGRESS) {
             throw new InterviewConflictException(ErrorCode.INTERVIEW_NOT_IN_PROGRESS, "This interview is not currently in progress");
         }
@@ -190,8 +201,8 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
 
     @Override
     @Transactional
-    public void finishInterview(UUID applicationId) {
-        InterviewSession session = findByApplicationIdOrThrow(applicationId);
+    public void finishInterview(UUID applicationId, UUID candidateId) {
+        InterviewSession session = findByApplicationIdForCandidateOrThrow(applicationId, candidateId);
         if (session.getStatus() != InterviewSessionStatus.IN_PROGRESS) {
             throw new InterviewConflictException(ErrorCode.INTERVIEW_NOT_IN_PROGRESS, "This interview is not currently in progress");
         }
@@ -287,9 +298,34 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
         }
     }
 
+    private void publishInvited(InterviewSession session) {
+        eventProducer.publishAiInterviewInvited(AiInterviewInvitedEvent.builder()
+                .applicationId(session.getApplicationId()).jobId(session.getJobId()).candidateId(session.getCandidateId())
+                .interviewLink(frontendBaseUrl + "/candidate/ai-interview/" + session.getApplicationId())
+                .validFrom(session.getInvitedAt()).validUntil(session.getExpiresAt())
+                .occurredAt(LocalDateTime.now()).build());
+    }
+
     private InterviewSession findByApplicationIdOrThrow(UUID applicationId) {
         return interviewSessionRepository.findByApplicationId(applicationId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.INTERVIEW_NOT_FOUND, "No interview found for application " + applicationId));
+    }
+
+    /**
+     * Candidate.id IS the auth User's own userId (1:1, see candidate-service's
+     * Candidate entity), so comparing the JWT's userId against
+     * InterviewSession.candidateId is a direct, correct ownership check --
+     * not a different ID space. Returns the same "not found" the caller would
+     * get for a nonexistent applicationId rather than a distinct forbidden
+     * error, so a candidate probing someone else's applicationId can't even
+     * confirm the interview exists.
+     */
+    private InterviewSession findByApplicationIdForCandidateOrThrow(UUID applicationId, UUID candidateId) {
+        InterviewSession session = findByApplicationIdOrThrow(applicationId);
+        if (!session.getCandidateId().equals(candidateId)) {
+            throw new ResourceNotFoundException(ErrorCode.INTERVIEW_NOT_FOUND, "No interview found for application " + applicationId);
+        }
+        return session;
     }
 
     private void writeLog(InterviewSession session, LogLevel level, String message) {

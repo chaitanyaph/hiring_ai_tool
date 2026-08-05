@@ -5,6 +5,7 @@ public final class KafkaTopics {
 
     // ---- Published by this service ----
     public static final String CANDIDATE_SHORTLISTED = "ai-interview.candidate.shortlisted";
+    public static final String INTERVIEW_INVITED = "ai-interview.interview.invited";
     public static final String INTERVIEW_STARTED = "ai-interview.interview.started";
     public static final String INTERVIEW_COMPLETED = "ai-interview.interview.completed";
     public static final String INTERVIEW_EVALUATED = "ai-interview.interview.evaluated";

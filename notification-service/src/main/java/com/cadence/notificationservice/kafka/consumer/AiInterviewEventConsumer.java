@@ -2,6 +2,7 @@ package com.cadence.notificationservice.kafka.consumer;
 
 import com.cadence.notificationservice.constants.KafkaTopics;
 import com.cadence.notificationservice.kafka.event.AiInterviewCompletedEvent;
+import com.cadence.notificationservice.kafka.event.AiInterviewInvitedEvent;
 import com.cadence.notificationservice.kafka.event.CandidateShortlistedEvent;
 import com.cadence.notificationservice.service.NotificationOrchestrationService;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +23,15 @@ public class AiInterviewEventConsumer {
             orchestrationService.handleCandidateShortlisted(event);
         } catch (Exception e) {
             log.error("Failed to process CandidateShortlisted for application {}: {}", event.getApplicationId(), e.getMessage(), e);
+        }
+    }
+
+    @KafkaListener(topics = KafkaTopics.AI_INTERVIEW_INVITED, groupId = "notification-service-group")
+    public void onAiInterviewInvited(AiInterviewInvitedEvent event) {
+        try {
+            orchestrationService.handleAiInterviewInvited(event);
+        } catch (Exception e) {
+            log.error("Failed to process AiInterviewInvited for application {}: {}", event.getApplicationId(), e.getMessage(), e);
         }
     }
 

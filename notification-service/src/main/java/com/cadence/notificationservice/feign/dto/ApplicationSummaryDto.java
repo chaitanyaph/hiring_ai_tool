@@ -13,6 +13,7 @@ public class ApplicationSummaryDto {
     private UUID id;
     private UUID jobId;
     private UUID candidateId;
+    private UUID companyId;
     private String candidateNameSnapshot;
     private String candidateEmailSnapshot;
     private String jobTitleSnapshot;

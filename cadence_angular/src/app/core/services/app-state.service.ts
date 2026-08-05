@@ -1702,8 +1702,9 @@ export class AppStateService {
     this.aiInterviewReport.set(null);
   }
 
-  startAiInterviewInvite(applicationId: string, jobId: string, candidateId: string) {
-    this.aiInterviewService.start(applicationId, jobId, candidateId).subscribe({
+  /** jobId is only used here to refresh the right queue view client-side -- the invite call itself no longer sends jobId/candidateId (server resolves them from the shortlist record). */
+  startAiInterviewInvite(applicationId: string, jobId: string) {
+    this.aiInterviewService.start(applicationId).subscribe({
       next: () => {
         this.showToast('Interview invitation sent');
         this.loadAiInterviewQueue(jobId);

@@ -46,6 +46,7 @@ public class NotificationOrchestrationServiceImpl implements NotificationOrchest
 
     private static final DateTimeFormatter DATE_FMT = DateTimeFormatter.ofPattern("MMM d, yyyy");
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("h:mm a");
+    private static final DateTimeFormatter DATE_TIME_FMT = DateTimeFormatter.ofPattern("MMM d, yyyy 'at' h:mm a");
 
     private final NotificationTemplateRepository templateRepository;
     private final EmailQueueRepository emailQueueRepository;
@@ -180,7 +181,8 @@ public class NotificationOrchestrationServiceImpl implements NotificationOrchest
             return;
         }
 
-        Map<String, String> vars = Map.of("candidate_name", nvl(candidateName), "job_title", jobTitle, "company_name", "");
+        String companyName = app.map(ApplicationSummaryDto::getCompanyId).map(this::safeCompanyName).orElse("");
+        Map<String, String> vars = Map.of("candidate_name", nvl(candidateName), "job_title", jobTitle, "company_name", companyName);
         TemplateCategory category = rejected ? TemplateCategory.RESUME_REJECTED : TemplateCategory.RESUME_SHORTLISTED;
         queueEmail(category, candidateEmail, candidateName, vars, "APPLICATION", event.getApplicationId(), TriggerEvent.CANDIDATE_SHORTLISTED);
 
@@ -192,10 +194,70 @@ public class NotificationOrchestrationServiceImpl implements NotificationOrchest
 
     @Override
     @Transactional
+    public void handleAiInterviewInvited(AiInterviewInvitedEvent event) {
+        Optional<ApplicationSummaryDto> app = safeApplicationSummary(event.getJobId(), event.getApplicationId());
+        String candidateName = app.map(ApplicationSummaryDto::getCandidateNameSnapshot).orElseGet(() -> safeCandidateName(event.getCandidateId()));
+        String candidateEmail = app.map(ApplicationSummaryDto::getCandidateEmailSnapshot).orElseGet(() -> safeCandidateEmail(event.getCandidateId()));
+        String jobTitle = app.map(ApplicationSummaryDto::getJobTitleSnapshot).orElse("");
+        String companyName = app.map(ApplicationSummaryDto::getCompanyId).map(this::safeCompanyName).orElse("");
+
+        if (candidateEmail == null) {
+            log(LogLevel.WARN, "notification-service", "AiInterviewInvited", "Could not resolve candidate email for application " + event.getApplicationId(), event.getApplicationId());
+            return;
+        }
+
+        Map<String, String> vars = new HashMap<>();
+        vars.put("candidate_name", nvl(candidateName));
+        vars.put("job_title", jobTitle);
+        vars.put("company_name", companyName);
+        vars.put("interview_link", nvl(event.getInterviewLink()));
+        vars.put("valid_from", event.getValidFrom() != null ? event.getValidFrom().format(DATE_TIME_FMT) : "");
+        vars.put("valid_until", event.getValidUntil() != null ? event.getValidUntil().format(DATE_TIME_FMT) : "");
+        queueEmail(TemplateCategory.AI_INTERVIEW_INVITATION, candidateEmail, candidateName, vars,
+                "APPLICATION", event.getApplicationId(), TriggerEvent.AI_INTERVIEW_INVITED);
+
+        createNotification(event.getCandidateId(), PlatformRole.CANDIDATE, null, NotificationCategory.INTERVIEW,
+                "AI interview invitation", "You've been invited to an AI interview for " + jobTitle + ".", ColorTone.INFO,
+                "APPLICATION", event.getApplicationId());
+    }
+
+    @Override
+    @Transactional
     public void handleAiInterviewCompleted(AiInterviewCompletedEvent event) {
         // No recruiter recipient id is carried on this event -- logged only.
         log(LogLevel.INFO, "ai-interview-service", "AIInterviewCompleted",
                 "Candidate finished AI interview for application " + event.getApplicationId(), event.getApplicationId());
+    }
+
+    @Override
+    @Transactional
+    public void handleCodingAssessmentInvited(CodingAssessmentInvitedEvent event) {
+        Optional<ApplicationSummaryDto> app = safeApplicationSummary(event.getJobId(), event.getApplicationId());
+        String candidateName = app.map(ApplicationSummaryDto::getCandidateNameSnapshot).orElseGet(() -> safeCandidateName(event.getCandidateId()));
+        String candidateEmail = app.map(ApplicationSummaryDto::getCandidateEmailSnapshot).orElseGet(() -> safeCandidateEmail(event.getCandidateId()));
+        String jobTitle = app.map(ApplicationSummaryDto::getJobTitleSnapshot).orElse("");
+        String companyName = app.map(ApplicationSummaryDto::getCompanyId).map(this::safeCompanyName).orElse("");
+
+        if (candidateEmail == null) {
+            log(LogLevel.WARN, "notification-service", "CodingAssessmentInvited", "Could not resolve candidate email for application " + event.getApplicationId(), event.getApplicationId());
+            return;
+        }
+
+        Map<String, String> vars = new HashMap<>();
+        vars.put("candidate_name", nvl(candidateName));
+        vars.put("job_title", jobTitle);
+        vars.put("company_name", companyName);
+        vars.put("assessment_name", nvl(event.getAssessmentName()));
+        vars.put("duration_minutes", event.getDurationMinutes() != null ? String.valueOf(event.getDurationMinutes()) : "");
+        vars.put("passing_score_percent", event.getPassingScorePercent() != null ? String.valueOf(event.getPassingScorePercent()) : "");
+        vars.put("assessment_link", nvl(event.getAssessmentLink()));
+        vars.put("expiry_date", event.getExpiresAt() != null ? event.getExpiresAt().format(DATE_TIME_FMT) : "");
+        queueEmail(TemplateCategory.CODING_ASSESSMENT_INVITATION, candidateEmail, candidateName, vars,
+                "APPLICATION", event.getApplicationId(), TriggerEvent.CODING_ASSESSMENT_INVITED);
+
+        createNotification(event.getCandidateId(), PlatformRole.CANDIDATE, null, NotificationCategory.APPLICATION,
+                "Coding assessment invitation", "You've been invited to a coding assessment for " + jobTitle + ".", ColorTone.INFO,
+                "APPLICATION", event.getApplicationId());
     }
 
     @Override

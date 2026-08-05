@@ -9,6 +9,10 @@ public final class KafkaTopics {
     // -- do not rename, this is load-bearing on the other side.
     public static final String CODING_ASSESSMENT_COMPLETED = "assessment.coding.completed";
 
+    // Published the moment a candidate's invite row is actually created/refreshed
+    // (real link + validity window) -- consumed by notification-service.
+    public static final String CODING_ASSESSMENT_INVITED = "assessment.coding.invited";
+
     // Forward-scaffolded (no consumer exists anywhere yet, same posture
     // every sibling service takes for events aimed at not-yet-built
     // Analytics/Notification services).

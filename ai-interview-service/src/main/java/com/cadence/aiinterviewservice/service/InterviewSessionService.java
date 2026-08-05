@@ -14,17 +14,18 @@ import java.util.UUID;
  */
 public interface InterviewSessionService {
 
-    void inviteCandidate(UUID applicationId, UUID jobId, UUID candidateId);
+    /** jobId/candidateId are resolved server-side from the CandidateShortlist record for this application -- never trust caller-supplied IDs for who gets invited to what. */
+    void inviteCandidate(UUID applicationId);
 
     void sendReminder(UUID applicationId);
 
     void resendInvite(UUID applicationId);
 
-    InterviewQuestionResponse startInterview(UUID applicationId, InterviewMode mode);
+    InterviewQuestionResponse startInterview(UUID applicationId, UUID candidateId, InterviewMode mode);
 
-    InterviewQuestionResponse submitAnswer(UUID applicationId, AnswerRequest request);
+    InterviewQuestionResponse submitAnswer(UUID applicationId, UUID candidateId, AnswerRequest request);
 
-    void finishInterview(UUID applicationId);
+    void finishInterview(UUID applicationId, UUID candidateId);
 
     void recordRecruiterDecision(UUID applicationId, HiringRecommendation override);
 }

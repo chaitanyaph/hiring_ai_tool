@@ -103,8 +103,8 @@ public class InterviewQueryServiceImpl implements InterviewQueryService {
     }
 
     @Override
-    public InterviewDetailsResponse getCandidateDetails(UUID applicationId) {
-        InterviewSession session = findByApplicationIdOrThrow(applicationId);
+    public InterviewDetailsResponse getCandidateDetails(UUID applicationId, UUID candidateId) {
+        InterviewSession session = findByApplicationIdForCandidateOrThrow(applicationId, candidateId);
         ApplicationSummaryDto application = fetchApplicationsByJob(session.getJobId()).get(applicationId);
 
         return InterviewDetailsResponse.builder()
@@ -119,8 +119,8 @@ public class InterviewQueryServiceImpl implements InterviewQueryService {
     }
 
     @Override
-    public InterviewResultResponse getCandidateResult(UUID applicationId) {
-        InterviewSession session = findByApplicationIdOrThrow(applicationId);
+    public InterviewResultResponse getCandidateResult(UUID applicationId, UUID candidateId) {
+        InterviewSession session = findByApplicationIdForCandidateOrThrow(applicationId, candidateId);
 
         if (session.getStatus() != InterviewSessionStatus.COMPLETED) {
             return InterviewResultResponse.builder()
@@ -220,5 +220,14 @@ public class InterviewQueryServiceImpl implements InterviewQueryService {
     private InterviewSession findByApplicationIdOrThrow(UUID applicationId) {
         return interviewSessionRepository.findByApplicationId(applicationId)
                 .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.INTERVIEW_NOT_FOUND, "No interview found for application " + applicationId));
+    }
+
+    /** See InterviewSessionServiceImpl's identical helper for why comparing candidateId to the JWT userId is a correct, direct ownership check. */
+    private InterviewSession findByApplicationIdForCandidateOrThrow(UUID applicationId, UUID candidateId) {
+        InterviewSession session = findByApplicationIdOrThrow(applicationId);
+        if (!session.getCandidateId().equals(candidateId)) {
+            throw new ResourceNotFoundException(ErrorCode.INTERVIEW_NOT_FOUND, "No interview found for application " + applicationId);
+        }
+        return session;
     }
 }

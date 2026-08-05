@@ -17,7 +17,7 @@ public interface InterviewQueryService {
 
     InterviewEvaluationReportResponse getReport(UUID applicationId);
 
-    InterviewDetailsResponse getCandidateDetails(UUID applicationId);
+    InterviewDetailsResponse getCandidateDetails(UUID applicationId, UUID candidateId);
 
-    InterviewResultResponse getCandidateResult(UUID applicationId);
+    InterviewResultResponse getCandidateResult(UUID applicationId, UUID candidateId);
 }

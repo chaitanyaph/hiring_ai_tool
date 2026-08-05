@@ -33,6 +33,7 @@ import static org.mockito.Mockito.*;
 class CandidateAssessmentServiceImplTest {
 
     @Mock private CandidateAssessmentRepository candidateAssessmentRepository;
+    @Mock private AssessmentRepository assessmentRepository;
     @Mock private CandidateQuestionProgressRepository progressRepository;
     @Mock private AssessmentQuestionRepository assessmentQuestionRepository;
     @Mock private QuestionRepository questionRepository;

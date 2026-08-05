@@ -57,9 +57,8 @@ public class InterviewController {
     @PostMapping("/{applicationId}/start")
     @PreAuthorize("hasAnyRole('COMPANY_ADMIN','HR_MANAGER','HR_RECRUITER','TECHNICAL_RECRUITER','TALENT_ACQUISITION_MANAGER','ADMIN')")
     @Operation(summary = "Start the AI interview (sends the interview invitation to the candidate)")
-    public ResponseEntity<ApiResponse<Void>> start(@PathVariable UUID applicationId,
-                                                    @RequestParam UUID jobId, @RequestParam UUID candidateId) {
-        interviewSessionService.inviteCandidate(applicationId, jobId, candidateId);
+    public ResponseEntity<ApiResponse<Void>> start(@PathVariable UUID applicationId) {
+        interviewSessionService.inviteCandidate(applicationId);
         return ResponseEntity.accepted().body(ApiResponse.ok("Interview invitation sent"));
     }
 

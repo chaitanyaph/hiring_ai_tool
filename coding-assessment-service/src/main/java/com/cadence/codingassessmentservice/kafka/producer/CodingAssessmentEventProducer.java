@@ -45,6 +45,11 @@ public class CodingAssessmentEventProducer {
         publish(KafkaTopics.CODING_ASSESSMENT_COMPLETED, event.getApplicationId().toString(), event);
     }
 
+    @Async
+    public void publishCodingAssessmentInvited(CodingAssessmentInvitedEvent event) {
+        publish(KafkaTopics.CODING_ASSESSMENT_INVITED, event.getApplicationId().toString(), event);
+    }
+
     private void publish(String topic, String key, Object payload) {
         CompletableFuture<SendResult<String, Object>> future = kafkaTemplate.send(topic, key, payload);
         future.whenComplete((result, ex) -> {
