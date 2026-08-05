@@ -1795,7 +1795,10 @@ export class AppStateService {
 
   loadQuestionBank(difficulty?: Difficulty, status?: QuestionStatus, search?: string) {
     this.questionBankLoading.set(true);
-    this.codingAssessmentService.listQuestions(difficulty, status, search, 0, 100).subscribe({
+    // size=1000: the list view has no pagination controls yet, so this must stay
+    // comfortably above any realistic question bank size rather than silently
+    // truncating (a hardcoded 100 previously hid every question past the 100th).
+    this.codingAssessmentService.listQuestions(difficulty, status, search, 0, 1000).subscribe({
       next: (res) => { this.questionBankList.set(res.data.content); this.questionBankLoading.set(false); },
       error: () => { this.showToast('Could not load the question bank.'); this.questionBankLoading.set(false); },
     });
