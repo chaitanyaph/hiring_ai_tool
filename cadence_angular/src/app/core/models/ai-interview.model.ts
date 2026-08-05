@@ -136,6 +136,8 @@ export interface InterviewQuestionResponse {
   totalQuestions: number;
   category: QuestionCategory;
   questionText: string;
+  /** Base64 MP3, absent when server-side TTS is disabled/unavailable -- always fall back to text-only silently. */
+  audioBase64?: string;
   interviewCompleted: boolean;
 }
 

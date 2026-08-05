@@ -57,6 +57,7 @@ class InterviewSessionServiceImplTest {
     @Mock private AiInterviewEventProducer eventProducer;
     @Mock private InterviewEvaluationService interviewEvaluationService;
     @Mock private AIInterviewProvider provider;
+    @Mock private com.cadence.aiinterviewservice.provider.TextToSpeechService textToSpeechService;
 
     @InjectMocks
     private InterviewSessionServiceImpl interviewSessionService;

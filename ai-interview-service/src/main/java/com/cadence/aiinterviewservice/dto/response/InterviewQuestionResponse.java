@@ -17,5 +17,7 @@ public class InterviewQuestionResponse {
     private int totalQuestions;
     private QuestionCategory category;
     private String questionText;
+    /** Base64 MP3 (Google Cloud TTS), null when synthesis is disabled/unavailable -- the frontend falls back to text-only silently. */
+    private String audioBase64;
     private boolean interviewCompleted;
 }

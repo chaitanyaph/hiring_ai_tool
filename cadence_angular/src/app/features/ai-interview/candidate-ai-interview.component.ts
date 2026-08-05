@@ -14,7 +14,10 @@ interface ChatBubble {
  * ever accepts a text answerText -- there is no audio/video upload endpoint anywhere on
  * the platform. So Voice/Video modes use the browser's real getUserMedia (camera preview,
  * mic access) and the Web Speech API for genuine speech-to-text, but what's actually sent
- * to the backend is always the resulting text -- never a fabricated transcript.
+ * to the backend is always the resulting text -- never a fabricated transcript. The other
+ * direction (the AI's questions) IS real server-side audio: InterviewQuestionResponse
+ * carries a base64 MP3 (Google Cloud TTS) that Voice/Video modes play automatically --
+ * Chat mode stays text-only by design.
  */
 @Component({
   selector: 'app-candidate-ai-interview',
@@ -109,7 +112,10 @@ interface ChatBubble {
 
             <!-- VOICE MODE -->
             <div class="iv-panel" *ngIf="selectedMode() === 'VOICE'">
-              <div class="iv-question-card"><div class="ai-text">{{ question()?.questionText }}</div></div>
+              <div class="iv-question-card">
+                <div class="ai-text">{{ question()?.questionText }}</div>
+                <button class="btn-ghost" style="margin-top:8px; padding:4px 10px; font-size:12px;" (click)="replayQuestionAudio()" *ngIf="lastAudioBase64()">🔊 Replay question</button>
+              </div>
               <div class="iv-voice-stage">
                 <div class="waveform" [class.active]="recording()">
                   <span *ngFor="let b of waveBars"></span>
@@ -138,6 +144,7 @@ interface ChatBubble {
                 <div class="iv-question-card" style="margin-bottom:0; display:flex; flex-direction:column; justify-content:center;">
                   <div class="badge stage" style="margin-bottom:8px; width:fit-content;">AI Interviewer</div>
                   <div class="ai-text">{{ question()?.questionText }}</div>
+                  <button class="btn-ghost" style="margin-top:8px; padding:4px 10px; font-size:12px; width:fit-content;" (click)="replayQuestionAudio()" *ngIf="lastAudioBase64()">🔊 Replay question</button>
                 </div>
               </div>
               <div class="iv-video-controls">
@@ -202,6 +209,9 @@ export class CandidateAiInterviewComponent implements OnInit, OnDestroy {
   private mediaStream: MediaStream | null = null;
   private speechRecognition: any = null;
 
+  lastAudioBase64 = signal<string | null>(null);
+  private audioElement: HTMLAudioElement | null = null;
+
   waveBars = Array.from({ length: 10 });
 
   details = computed(() => this.state.candidateInterviewDetails());
@@ -237,6 +247,7 @@ export class CandidateAiInterviewComponent implements OnInit, OnDestroy {
     this.stopTimer();
     this.stopMediaStream();
     this.stopSpeechRecognition();
+    this.stopQuestionAudio();
   }
 
   private startTimer() {
@@ -267,6 +278,30 @@ export class CandidateAiInterviewComponent implements OnInit, OnDestroy {
     this.speechRecognition = null;
   }
 
+  /** Chat mode is the text-only alternative -- only Voice/Video speak the question aloud. */
+  private playQuestionAudio(audioBase64: string | undefined | null) {
+    this.lastAudioBase64.set(audioBase64 ?? null);
+    if (!audioBase64 || this.selectedMode() === InterviewMode.CHAT) return;
+    this.stopQuestionAudio();
+    this.audioElement = new Audio(`data:audio/mp3;base64,${audioBase64}`);
+    this.audioElement.play().catch(() => {
+      /* autoplay can be blocked by the browser -- the Replay button still works */
+    });
+  }
+
+  replayQuestionAudio() {
+    const audio = this.lastAudioBase64();
+    if (!audio) return;
+    this.stopQuestionAudio();
+    this.audioElement = new Audio(`data:audio/mp3;base64,${audio}`);
+    this.audioElement.play().catch(() => this.state.showToast('Could not play the audio.'));
+  }
+
+  private stopQuestionAudio() {
+    this.audioElement?.pause();
+    this.audioElement = null;
+  }
+
   async beginInterview() {
     this.permissionError.set(null);
     const mode = this.selectedMode();
@@ -293,6 +328,7 @@ export class CandidateAiInterviewComponent implements OnInit, OnDestroy {
         this.starting.set(false);
         this.viewState.set('live');
         this.chatMessages.set([{ who: 'ai', text: res.data.questionText }]);
+        this.playQuestionAudio(res.data.audioBase64);
         this.startTimer();
         if (mode === InterviewMode.VIDEO) this.attachVideoStream();
       },
@@ -410,8 +446,9 @@ export class CandidateAiInterviewComponent implements OnInit, OnDestroy {
           this.finishInterview();
         } else if (this.selectedMode() === InterviewMode.CHAT) {
           this.chatMessages.update((list) => [...list, { who: 'ai', text: res.data.questionText }]);
-        } else if (this.selectedMode() === InterviewMode.VIDEO) {
-          this.startVideoSpeechCapture();
+        } else {
+          this.playQuestionAudio(res.data.audioBase64);
+          if (this.selectedMode() === InterviewMode.VIDEO) this.startVideoSpeechCapture();
         }
       },
       error: (err) => {
@@ -440,6 +477,7 @@ export class CandidateAiInterviewComponent implements OnInit, OnDestroy {
     this.stopTimer();
     this.stopMediaStream();
     this.stopSpeechRecognition();
+    this.stopQuestionAudio();
     this.state.loadCandidateInterviewResult(this.applicationId);
     this.viewState.set('completion');
   }
@@ -453,6 +491,7 @@ export class CandidateAiInterviewComponent implements OnInit, OnDestroy {
     this.stopTimer();
     this.stopMediaStream();
     this.stopSpeechRecognition();
+    this.stopQuestionAudio();
     this.router.navigateByUrl(destination);
   }
 }

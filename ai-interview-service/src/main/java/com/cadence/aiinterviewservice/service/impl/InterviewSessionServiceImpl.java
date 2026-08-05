@@ -27,6 +27,7 @@ import com.cadence.aiinterviewservice.provider.GeneratedQuestion;
 import com.cadence.aiinterviewservice.provider.InterviewQuestionContext;
 import com.cadence.aiinterviewservice.provider.JobContextSnapshot;
 import com.cadence.aiinterviewservice.provider.QaPair;
+import com.cadence.aiinterviewservice.provider.TextToSpeechService;
 import com.cadence.aiinterviewservice.entity.CandidateShortlist;
 import com.cadence.aiinterviewservice.repository.CandidateShortlistRepository;
 import com.cadence.aiinterviewservice.repository.InterviewAnswerRepository;
@@ -86,6 +87,7 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
     private final AIInterviewProviderFactory providerFactory;
     private final AiInterviewEventProducer eventProducer;
     private final InterviewEvaluationService interviewEvaluationService;
+    private final TextToSpeechService textToSpeechService;
 
     @Value("${ai-interview.session.default-question-count:8}")
     private int defaultQuestionCount;
@@ -255,7 +257,9 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
 
         return InterviewQuestionResponse.builder()
                 .questionId(question.getId()).questionOrder(questionNumber).totalQuestions(session.getTotalQuestions())
-                .category(category).questionText(generated.questionText()).interviewCompleted(false).build();
+                .category(category).questionText(generated.questionText())
+                .audioBase64(textToSpeechService.synthesize(generated.questionText()))
+                .interviewCompleted(false).build();
     }
 
     private List<QaPair> buildPriorQaPairs(UUID sessionId) {
