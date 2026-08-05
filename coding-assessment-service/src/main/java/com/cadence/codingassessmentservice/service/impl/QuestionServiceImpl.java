@@ -17,6 +17,7 @@ import com.cadence.codingassessmentservice.exception.ResourceNotFoundException;
 import com.cadence.codingassessmentservice.mapper.QuestionMapper;
 import com.cadence.codingassessmentservice.repository.AssessmentQuestionRepository;
 import com.cadence.codingassessmentservice.repository.QuestionHintRepository;
+import com.cadence.codingassessmentservice.repository.QuestionIdCount;
 import com.cadence.codingassessmentservice.repository.QuestionRepository;
 import com.cadence.codingassessmentservice.repository.QuestionStarterCodeRepository;
 import com.cadence.codingassessmentservice.repository.QuestionTestCaseRepository;
@@ -32,6 +33,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -126,13 +128,33 @@ public class QuestionServiceImpl implements QuestionService {
     @Transactional(readOnly = true)
     public PagedResponse<QuestionResponse> listQuestions(UUID companyId, Difficulty difficulty, QuestionStatus status, String keyword, Pageable pageable) {
         Page<Question> page = questionRepository.search(companyId, difficulty, status, keyword == null || keyword.isBlank() ? null : keyword.trim(), pageable);
-        return PagedResponse.from(page.map(questionMapper::toResponse));
+        Page<QuestionResponse> mapped = page.map(questionMapper::toResponse);
+        enrichCounts(mapped.getContent());
+        return PagedResponse.from(mapped);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<QuestionResponse> listActiveQuestions(UUID companyId) {
-        return questionRepository.findAllActiveByCompanyId(companyId).stream().map(questionMapper::toResponse).toList();
+        List<QuestionResponse> responses = questionRepository.findAllActiveByCompanyId(companyId).stream().map(questionMapper::toResponse).toList();
+        enrichCounts(responses);
+        return responses;
+    }
+
+    /** Batched GROUP BY counts instead of one query per question -- keeps the list/active-questions endpoints from doing N+1 queries as the bank grows. */
+    private void enrichCounts(List<QuestionResponse> responses) {
+        if (responses.isEmpty()) {
+            return;
+        }
+        List<UUID> ids = responses.stream().map(QuestionResponse::getId).toList();
+        Map<UUID, Long> testCaseCounts = testCaseRepository.countByQuestionIdIn(ids).stream()
+                .collect(Collectors.toMap(QuestionIdCount::getQuestionId, QuestionIdCount::getCount));
+        Map<UUID, Long> usageCounts = assessmentQuestionRepository.countDistinctAssessmentsByQuestionIdIn(ids).stream()
+                .collect(Collectors.toMap(QuestionIdCount::getQuestionId, QuestionIdCount::getCount));
+        for (QuestionResponse response : responses) {
+            response.setTestCaseCount(testCaseCounts.getOrDefault(response.getId(), 0L).intValue());
+            response.setUsedInAssessmentCount(usageCounts.getOrDefault(response.getId(), 0L).intValue());
+        }
     }
 
     @Override
@@ -215,6 +237,7 @@ public class QuestionServiceImpl implements QuestionService {
 
         List<QuestionTestCase> testCases = testCaseRepository.findAllByQuestionIdOrderByDisplayOrderAsc(question.getId());
         response.setTestCases(questionMapper.toTestCaseResponseList(testCases));
+        response.setTestCaseCount(testCases.size());
         response.setHiddenTestCaseCount((int) testCaseRepository.countByQuestionIdAndVisibility(question.getId(), TestCaseVisibility.HIDDEN));
 
         response.setHints(questionHintRepository.findAllByQuestionIdOrderByDisplayOrderAsc(question.getId()).stream()

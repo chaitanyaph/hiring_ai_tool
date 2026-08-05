@@ -19,6 +19,7 @@ public interface QuestionMapper {
     @Mapping(target = "starterCodes", ignore = true)
     @Mapping(target = "testCases", ignore = true)
     @Mapping(target = "hints", ignore = true)
+    @Mapping(target = "testCaseCount", ignore = true)
     @Mapping(target = "hiddenTestCaseCount", ignore = true)
     @Mapping(target = "usedInAssessmentCount", ignore = true)
     QuestionResponse toResponse(Question question);

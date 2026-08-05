@@ -34,6 +34,8 @@ public class QuestionResponse {
     private List<String> allowedLanguages;
     private Map<String, String> starterCodes;
     private List<TestCaseResponse> testCases;
+    /** Populated on both the list and detail endpoints -- unlike testCases (detail-only), this is cheap to compute in bulk and is what the bank's list table renders. */
+    private int testCaseCount;
     private int hiddenTestCaseCount;
     private int usedInAssessmentCount;
 

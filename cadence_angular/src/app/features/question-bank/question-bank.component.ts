@@ -7,6 +7,7 @@ import {
   ProgrammingLanguage,
   QuestionResponse,
   QuestionStatus,
+  StarterCodeItem,
   TestCaseItem,
   TestCaseVisibility,
 } from '../../core/models/coding-assessment.model';
@@ -77,7 +78,7 @@ import {
                 <td><span class="badge" [ngClass]="q.status.toLowerCase()">{{ q.status }}</span></td>
                 <td class="muted">{{ q.difficulty }}</td>
                 <td>{{ q.marks }}</td>
-                <td class="muted">{{ q.testCases.length }}</td>
+                <td class="muted">{{ q.testCaseCount }}</td>
                 <td class="muted">{{ q.usedInAssessmentCount }} assessment{{ q.usedInAssessmentCount === 1 ? '' : 's' }}</td>
                 <td style="text-align:right; white-space:nowrap; vertical-align:middle;">
                   <span class="row-link" (click)="openEdit(q)">Edit</span>
@@ -110,11 +111,13 @@ import {
           </div>
           <div class="page-head-actions">
             <button class="btn-ghost" (click)="backToList()">Cancel</button>
-            <button class="btn-primary-sm" (click)="save()">{{ editingId() ? 'Save changes' : 'Create question' }}</button>
+            <button class="btn-primary-sm" [disabled]="editorLoading()" (click)="save()">{{ editingId() ? 'Save changes' : 'Create question' }}</button>
           </div>
         </div>
 
-        <div class="card" style="padding:20px; display:flex; flex-direction:column; gap:16px;">
+        <div class="card" *ngIf="editorLoading()" style="padding:40px; text-align:center; color:var(--ink-soft);">Loading question…</div>
+
+        <div class="card" *ngIf="!editorLoading()" style="padding:20px; display:flex; flex-direction:column; gap:16px;">
           <div class="field-full">
             <label>Title</label>
             <input placeholder="e.g. Two Sum" [value]="title()" (input)="title.set($any($event.target).value)">
@@ -296,6 +299,9 @@ export class QuestionBankComponent implements OnInit {
   langSQL = signal(false);
   activateNow = signal(false);
   testCases = signal<TestCaseItem[]>([{ visibility: TestCaseVisibility.VISIBLE, inputData: '', expectedOutput: '', explanation: '', weight: 1 }]);
+  editorLoading = signal(false);
+  /** No dedicated starter-code editor exists in this UI yet -- round-tripped as-is on save so editing a question that already has starter code stubs doesn't silently delete them (updateQuestion() fully replaces children). */
+  private loadedStarterCodes: StarterCodeItem[] = [];
 
   constructor(public state: AppStateService) {}
 
@@ -342,11 +348,31 @@ export class QuestionBankComponent implements OnInit {
     this.langSQL.set(false);
     this.activateNow.set(false);
     this.testCases.set([{ visibility: TestCaseVisibility.VISIBLE, inputData: '', expectedOutput: '', explanation: '', weight: 1 }]);
+    this.loadedStarterCodes = [];
     this.view.set('editor');
   }
 
-  openEdit(q: QuestionResponse) {
-    this.editingId.set(q.id);
+  /**
+   * The row passed in comes from the list endpoint, which omits testCases/hints/
+   * starterCodes for performance -- populating the form from it directly would
+   * silently wipe those fields on save (updateQuestion() fully replaces children).
+   * Fetch the full detail first and populate from that instead.
+   */
+  openEdit(row: QuestionResponse) {
+    this.editingId.set(row.id);
+    this.editorLoading.set(true);
+    this.view.set('editor');
+    this.state.getQuestionDetail(row.id).subscribe({
+      next: (res) => { this.populateForm(res.data); this.editorLoading.set(false); },
+      error: (err) => {
+        this.state.showToast(err?.error?.message ?? 'Could not load this question.');
+        this.editorLoading.set(false);
+        this.backToList();
+      },
+    });
+  }
+
+  private populateForm(q: QuestionResponse) {
     this.title.set(q.title);
     this.difficulty.set(q.difficulty);
     this.marks.set(q.marks);
@@ -369,7 +395,7 @@ export class QuestionBankComponent implements OnInit {
     this.testCases.set(q.testCases.length
       ? q.testCases.map((tc) => ({ visibility: tc.visibility, inputData: tc.inputData, expectedOutput: tc.expectedOutput, explanation: tc.explanation, weight: tc.weight }))
       : [{ visibility: TestCaseVisibility.VISIBLE, inputData: '', expectedOutput: '', explanation: '', weight: 1 }]);
-    this.view.set('editor');
+    this.loadedStarterCodes = Object.entries(q.starterCodes || {}).map(([language, code]) => ({ language: language as ProgrammingLanguage, code }));
   }
 
   backToList() {
@@ -444,6 +470,7 @@ export class QuestionBankComponent implements OnInit {
       timeLimitMs: this.timeLimitMs(),
       memoryLimitMb: this.memoryLimitMb(),
       allowedLanguages: this.buildLanguages(),
+      starterCodes: this.loadedStarterCodes.length ? this.loadedStarterCodes : undefined,
       testCases: this.testCases(),
       activateNow: this.activateNow(),
     };

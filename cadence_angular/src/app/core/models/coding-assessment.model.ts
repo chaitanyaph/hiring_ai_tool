@@ -423,6 +423,7 @@ export interface QuestionResponse {
   allowedLanguages: string[];
   starterCodes: Record<string, string>;
   testCases: QuestionTestCaseResponse[];
+  testCaseCount: number;
   hiddenTestCaseCount: number;
   usedInAssessmentCount: number;
 }

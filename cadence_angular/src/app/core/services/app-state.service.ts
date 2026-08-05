@@ -1818,6 +1818,11 @@ export class AppStateService {
     });
   }
 
+  /** Returns the Observable so callers (e.g. the question-bank editor) can populate a form only once the FULL detail -- including test cases/hints/starter codes, which the list endpoint omits for performance -- has actually arrived. */
+  getQuestionDetail(id: string) {
+    return this.codingAssessmentService.getQuestion(id);
+  }
+
   createQuestion(request: CreateQuestionRequest) {
     return this.codingAssessmentService.createQuestion(request).pipe(
       tap(() => { this.showToast('Question created'); this.loadQuestionBank(); this.loadActiveQuestionBank(); })
