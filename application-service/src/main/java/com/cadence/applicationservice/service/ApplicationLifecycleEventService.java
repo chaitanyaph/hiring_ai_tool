@@ -1,5 +1,6 @@
 package com.cadence.applicationservice.service;
 
+import com.cadence.applicationservice.constant.HiringRecommendation;
 import com.cadence.applicationservice.constant.InterviewType;
 import com.cadence.applicationservice.constant.ShortlistDecision;
 
@@ -22,7 +23,12 @@ public interface ApplicationLifecycleEventService {
 
     void handleCandidateShortlisted(UUID applicationId, ShortlistDecision decision, Integer overallMatchScore);
 
-    void handleInterviewCompleted(UUID applicationId, InterviewType interviewType, Integer score, String feedback);
+    /**
+     * recommendation is only meaningful for interviewType == AI (ai-interview-service's
+     * InterviewEvaluatedEvent is the only source of a PROCEED/HOLD/REJECT signal) --
+     * pass null for TECHNICAL/MANAGER/HR, whose completion event carries no such field.
+     */
+    void handleInterviewCompleted(UUID applicationId, InterviewType interviewType, Integer score, String feedback, HiringRecommendation recommendation);
 
     void handleCodingAssessmentCompleted(UUID applicationId, Integer score, Boolean passed);
 

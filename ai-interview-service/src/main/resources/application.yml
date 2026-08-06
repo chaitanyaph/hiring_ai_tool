@@ -89,11 +89,6 @@ ai-interview:
       api-key: ${GEMINI_API_KEY:}
       model: ${GEMINI_MODEL:gemini-2.0-flash}
       base-url: https://generativelanguage.googleapis.com/v1beta
-  tts:
-    enabled: ${AI_INTERVIEW_TTS_ENABLED:true}
-    api-key: ${AI_INTERVIEW_TTS_API_KEY:${GEMINI_API_KEY:}}
-    language-code: en-US
-    voice-name: en-US-Standard-C
       timeout-seconds: 30
     groq:
       api-key: ${GROQ_API_KEY:}
@@ -104,6 +99,11 @@ ai-interview:
       base-url: ${OLLAMA_BASE_URL:http://localhost:11434}
       model: ${OLLAMA_MODEL:llama3.1}
       timeout-seconds: 60
+  tts:
+    enabled: ${AI_INTERVIEW_TTS_ENABLED:true}
+    api-key: ${AI_INTERVIEW_TTS_API_KEY:${GEMINI_API_KEY:}}
+    language-code: en-US
+    voice-name: en-US-Standard-C
 
 eureka:
   client:

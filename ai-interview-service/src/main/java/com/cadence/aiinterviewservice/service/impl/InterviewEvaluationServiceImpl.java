@@ -81,7 +81,10 @@ public class InterviewEvaluationServiceImpl implements InterviewEvaluationServic
             InterviewEvaluationData data = providerFactory.getActiveProvider()
                     .evaluateInterview(new InterviewEvaluationContext(resumeSnapshot, jobSnapshot, transcript));
 
-            persistEvaluation(session, data);
+            int fillerWordCount = computeFillerWordCount(transcript);
+            Integer avgResponseLatencySeconds = computeAvgResponseLatencySeconds(session.getId());
+            HiringRecommendation recommendation = toHiringRecommendation(data.hiringRecommendation());
+            persistEvaluation(session, data, recommendation, fillerWordCount, avgResponseLatencySeconds);
             writeLog(session, LogLevel.INFO, "Evaluation completed");
 
             applicationServiceClient.updateInterviewScore(session.getApplicationId(),
@@ -90,11 +93,12 @@ public class InterviewEvaluationServiceImpl implements InterviewEvaluationServic
             eventProducer.publishInterviewEvaluated(InterviewEvaluatedEvent.builder()
                     .applicationId(session.getApplicationId()).jobId(session.getJobId()).candidateId(session.getCandidateId())
                     .sessionId(session.getId()).overallScore(data.overallScore())
+                    .hiringRecommendation(recommendation)
                     .occurredAt(LocalDateTime.now()).build());
 
             eventProducer.publishCandidateRecommended(CandidateRecommendedEvent.builder()
                     .applicationId(session.getApplicationId()).jobId(session.getJobId()).candidateId(session.getCandidateId())
-                    .hiringRecommendation(toHiringRecommendation(data.hiringRecommendation()))
+                    .hiringRecommendation(recommendation)
                     .occurredAt(LocalDateTime.now()).build());
 
         } catch (Exception e) {
@@ -102,6 +106,40 @@ public class InterviewEvaluationServiceImpl implements InterviewEvaluationServic
             log.warn("Evaluation failed for session {}: {}", sessionId, reason, e);
             writeLog(session, LogLevel.ERROR, "Evaluation failed: " + reason);
         }
+    }
+
+    private static final java.util.regex.Pattern FILLER_WORD_PATTERN = java.util.regex.Pattern.compile(
+            "\\b(um+|uh+|like|you know|sort of|kind of|actually|basically|literally|i mean)\\b",
+            java.util.regex.Pattern.CASE_INSENSITIVE);
+
+    /** Real, deterministic count from the candidate's actual transcribed text -- no LLM guessing involved. */
+    private int computeFillerWordCount(List<TranscriptTurn> transcript) {
+        if (transcript == null) {
+            return 0;
+        }
+        int count = 0;
+        for (TranscriptTurn turn : transcript) {
+            if (!"CANDIDATE".equals(turn.speaker()) || turn.text() == null) {
+                continue;
+            }
+            java.util.regex.Matcher matcher = FILLER_WORD_PATTERN.matcher(turn.text());
+            while (matcher.find()) {
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /** Real average of each answer's browser-side timer value -- null (not a guess) if none were recorded. */
+    private Integer computeAvgResponseLatencySeconds(UUID sessionId) {
+        List<Integer> times = interviewAnswerRepository.findAllBySessionIdOrderByAnsweredAtAsc(sessionId).stream()
+                .map(InterviewAnswer::getResponseTimeSeconds)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        if (times.isEmpty()) {
+            return null;
+        }
+        return (int) Math.round(times.stream().mapToInt(Integer::intValue).average().orElse(0));
     }
 
     private List<TranscriptTurn> buildTranscript(UUID sessionId) {
@@ -116,7 +154,7 @@ public class InterviewEvaluationServiceImpl implements InterviewEvaluationServic
     }
 
     @Transactional
-    protected void persistEvaluation(InterviewSession session, InterviewEvaluationData data) {
+    protected void persistEvaluation(InterviewSession session, InterviewEvaluationData data, HiringRecommendation recommendation, int fillerWordCount, Integer avgResponseLatencySeconds) {
         UUID sessionId = session.getId();
         interviewScoreRepository.deleteBySessionId(sessionId);
         interviewRecommendationRepository.deleteBySessionId(sessionId);
@@ -133,15 +171,18 @@ public class InterviewEvaluationServiceImpl implements InterviewEvaluationServic
                 .leadershipScore(data.leadershipScore())
                 .domainKnowledgeScore(data.domainKnowledgeScore())
                 .overallScore(data.overallScore())
-                .eyeContactScore(data.eyeContactScore())
-                .speakingPaceScore(data.speakingPaceScore())
-                .fillerWordCount(data.fillerWordCount())
-                .avgResponseLatencySeconds(data.avgResponseLatencySeconds())
+                // No real audio/video capture pipeline exists on this platform, so these
+                // two are left null (honest "not available") instead of an LLM-fabricated
+                // guess -- see InterviewEvaluationData's class comment.
+                .eyeContactScore(null)
+                .speakingPaceScore(null)
+                .fillerWordCount(fillerWordCount)
+                .avgResponseLatencySeconds(avgResponseLatencySeconds)
                 .build());
 
         interviewRecommendationRepository.save(InterviewRecommendation.builder()
                 .sessionId(sessionId)
-                .hiringRecommendation(toHiringRecommendation(data.hiringRecommendation()))
+                .hiringRecommendation(recommendation)
                 .interviewSummary(data.interviewSummary())
                 .recruiterSummary(data.recruiterSummary())
                 .build());

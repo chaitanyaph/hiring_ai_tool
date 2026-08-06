@@ -8,6 +8,7 @@ import com.cadence.applicationservice.client.dto.FeignApiResponse;
 import com.cadence.applicationservice.client.dto.JobDto;
 import com.cadence.applicationservice.client.dto.ResumeDto;
 import com.cadence.applicationservice.constant.ApplicationStatus;
+import com.cadence.applicationservice.constant.HiringRecommendation;
 import com.cadence.applicationservice.constant.InterviewType;
 import com.cadence.applicationservice.constant.PlatformRole;
 import com.cadence.applicationservice.dto.request.ApplyRequest;
@@ -304,16 +305,42 @@ class ApplicationServiceImplTest {
     }
 
     @Test
-    void handleInterviewCompleted_ai_shouldAdvanceToCodingAssessmentPending() {
+    void handleInterviewCompleted_ai_proceed_shouldAdvanceToCodingAssessmentPending() {
         Application app = Application.builder().id(UUID.randomUUID()).candidateId(UUID.randomUUID())
                 .companyId(companyId).jobId(jobId).currentStatus(ApplicationStatus.AI_INTERVIEW_PENDING).build();
         when(applicationRepository.findById(app.getId())).thenReturn(Optional.of(app));
         when(applicationRepository.save(any(Application.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        applicationService.handleInterviewCompleted(app.getId(), InterviewType.AI, 85, "Strong candidate");
+        applicationService.handleInterviewCompleted(app.getId(), InterviewType.AI, 85, "Strong candidate", HiringRecommendation.PROCEED);
 
         assertThat(app.getCurrentStatus()).isEqualTo(ApplicationStatus.CODING_ASSESSMENT_PENDING);
         assertThat(app.getAiInterviewScore()).isEqualTo(85);
+    }
+
+    @Test
+    void handleInterviewCompleted_ai_reject_shouldAutoReject() {
+        Application app = Application.builder().id(UUID.randomUUID()).candidateId(UUID.randomUUID())
+                .companyId(companyId).jobId(jobId).currentStatus(ApplicationStatus.AI_INTERVIEW_PENDING).build();
+        when(applicationRepository.findById(app.getId())).thenReturn(Optional.of(app));
+        when(applicationRepository.save(any(Application.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        applicationService.handleInterviewCompleted(app.getId(), InterviewType.AI, 22, "Weak candidate", HiringRecommendation.REJECT);
+
+        assertThat(app.getCurrentStatus()).isEqualTo(ApplicationStatus.REJECTED);
+        assertThat(app.getAiInterviewScore()).isEqualTo(22);
+    }
+
+    @Test
+    void handleInterviewCompleted_ai_hold_shouldStopAtCompletedForManualReview() {
+        Application app = Application.builder().id(UUID.randomUUID()).candidateId(UUID.randomUUID())
+                .companyId(companyId).jobId(jobId).currentStatus(ApplicationStatus.AI_INTERVIEW_PENDING).build();
+        when(applicationRepository.findById(app.getId())).thenReturn(Optional.of(app));
+        when(applicationRepository.save(any(Application.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        applicationService.handleInterviewCompleted(app.getId(), InterviewType.AI, 55, "Mixed signals", HiringRecommendation.HOLD);
+
+        assertThat(app.getCurrentStatus()).isEqualTo(ApplicationStatus.AI_INTERVIEW_COMPLETED);
+        assertThat(app.getAiInterviewScore()).isEqualTo(55);
     }
 
     @Test

@@ -55,7 +55,7 @@ public class ApplicationEventConsumer {
     @KafkaListener(topics = KafkaTopics.INTERVIEW_COMPLETED, groupId = "application-service-group")
     public void onInterviewCompleted(InterviewCompletedEvent event) {
         try {
-            lifecycleEventService.handleInterviewCompleted(event.getApplicationId(), event.getInterviewType(), event.getScore(), event.getFeedback());
+            lifecycleEventService.handleInterviewCompleted(event.getApplicationId(), event.getInterviewType(), event.getScore(), event.getFeedback(), null);
         } catch (Exception e) {
             log.error("Failed to process InterviewCompleted for application {}: {}", event.getApplicationId(), e.getMessage(), e);
         }
@@ -72,7 +72,7 @@ public class ApplicationEventConsumer {
     @KafkaListener(topics = KafkaTopics.INTERVIEW_EVALUATED, groupId = "application-service-group")
     public void onInterviewEvaluated(InterviewEvaluatedEvent event) {
         try {
-            lifecycleEventService.handleInterviewCompleted(event.getApplicationId(), InterviewType.AI, event.getOverallScore(), null);
+            lifecycleEventService.handleInterviewCompleted(event.getApplicationId(), InterviewType.AI, event.getOverallScore(), null, event.getHiringRecommendation());
         } catch (Exception e) {
             log.error("Failed to process InterviewEvaluated for application {}: {}", event.getApplicationId(), e.getMessage(), e);
         }

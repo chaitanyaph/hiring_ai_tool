@@ -163,16 +163,16 @@ const STATUS_FILTER_MAP: Record<string, InterviewSessionStatus | undefined> = {
             <h5 class="section-label">Behavioral metrics</h5>
             <div style="display:flex; flex-direction:column; gap:6px; margin-bottom:20px; font-size:12.5px;">
               <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--line-soft); padding:6px 0;">
-                <span class="muted">Eye contact / engagement</span><span style="font-weight:600;">{{ report.eyeContactScore ?? '—' }}</span>
+                <span class="muted">Eye contact / engagement</span><span style="font-weight:600; font-style:italic; color:var(--ink-faint);" title="No audio/video capture pipeline exists on this platform -- not measurable.">Not available</span>
               </div>
               <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--line-soft); padding:6px 0;">
-                <span class="muted">Speaking pace</span><span style="font-weight:600;">{{ report.speakingPaceScore ?? '—' }}</span>
+                <span class="muted">Speaking pace</span><span style="font-weight:600; font-style:italic; color:var(--ink-faint);" title="No audio/video capture pipeline exists on this platform -- not measurable.">Not available</span>
               </div>
               <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--line-soft); padding:6px 0;">
                 <span class="muted">Filler words</span><span style="font-weight:600;">{{ report.fillerWordCount ?? '—' }}</span>
               </div>
               <div style="display:flex; justify-content:space-between; border-bottom:1px solid var(--line-soft); padding:6px 0;">
-                <span class="muted">Avg. response latency</span><span style="font-weight:600;">{{ report.avgResponseLatencySeconds ?? '—' }}s</span>
+                <span class="muted">Avg. response latency</span><span style="font-weight:600;">{{ report.avgResponseLatencySeconds != null ? report.avgResponseLatencySeconds + 's' : '—' }}</span>
               </div>
             </div>
 

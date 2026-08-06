@@ -41,6 +41,7 @@ import com.cadence.aiinterviewservice.strategy.AIInterviewProviderFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -291,6 +292,28 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
                 .filter(s -> "REQUIRED".equalsIgnoreCase(s.getSkillType()))
                 .map(JobSkillDto::getSkillName).toList();
         return new JobContextSnapshot(job.getTitle(), required);
+    }
+
+    /**
+     * Sweeps NOT_STARTED sessions past their expiresAt deadline to EXPIRED,
+     * so the recruiter's interview queue (and the "Resend invite" action,
+     * only enabled while status == EXPIRED) reflect an expired invite as
+     * soon as it lapses, not only if/when a candidate happens to click a
+     * dead link and trips expireIfPastDeadline() on their way in.
+     */
+    @Scheduled(fixedDelayString = "${ai-interview.session.expiry-sweep-interval-ms:900000}")
+    @Transactional
+    public void sweepExpiredSessions() {
+        List<InterviewSession> overdue = interviewSessionRepository
+                .findAllByStatusAndExpiresAtBefore(InterviewSessionStatus.NOT_STARTED, LocalDateTime.now());
+        for (InterviewSession session : overdue) {
+            session.setStatus(InterviewSessionStatus.EXPIRED);
+            interviewSessionRepository.save(session);
+            writeLog(session, LogLevel.INFO, "Interview invitation expired");
+        }
+        if (!overdue.isEmpty()) {
+            log.info("Expiry sweep marked {} interview session(s) EXPIRED", overdue.size());
+        }
     }
 
     private void expireIfPastDeadline(InterviewSession session) {

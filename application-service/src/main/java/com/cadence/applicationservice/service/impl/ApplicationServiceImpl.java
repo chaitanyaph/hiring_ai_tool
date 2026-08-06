@@ -9,6 +9,7 @@ import com.cadence.applicationservice.client.dto.ResumeDto;
 import com.cadence.applicationservice.config.RedisConfig;
 import com.cadence.applicationservice.constant.ApplicationStage;
 import com.cadence.applicationservice.constant.ApplicationStatus;
+import com.cadence.applicationservice.constant.HiringRecommendation;
 import com.cadence.applicationservice.constant.InterviewType;
 import com.cadence.applicationservice.constant.PlatformRole;
 import com.cadence.applicationservice.constant.ScoreType;
@@ -444,7 +445,7 @@ public class ApplicationServiceImpl implements ApplicationService, ApplicationLi
 
     @Override
     @Transactional
-    public void handleInterviewCompleted(UUID applicationId, InterviewType interviewType, Integer score, String feedback) {
+    public void handleInterviewCompleted(UUID applicationId, InterviewType interviewType, Integer score, String feedback, HiringRecommendation recommendation) {
         Application application = applicationRepository.findById(applicationId).orElse(null);
         if (application == null) {
             log.warn("InterviewCompleted event for unknown application {}", applicationId);
@@ -458,7 +459,15 @@ public class ApplicationServiceImpl implements ApplicationService, ApplicationLi
                 application.setAiInterviewScore(score);
                 application.setOverallScore(ScoreCalculator.recomputeOverall(application));
                 transitionStatus(application, ApplicationStatus.AI_INTERVIEW_COMPLETED, null, feedback);
-                transitionStatus(application, ApplicationStatus.CODING_ASSESSMENT_PENDING, null, "Coding assessment triggered automatically");
+                // PROCEED auto-advances (no recruiter action required); REJECT auto-rejects;
+                // HOLD (or an unrecognized/missing recommendation) deliberately stops here --
+                // the recruiter reviews the evaluation report and moves the application on
+                // manually via the existing generic PUT /{id}/status endpoint.
+                if (recommendation == HiringRecommendation.REJECT) {
+                    transitionStatus(application, ApplicationStatus.REJECTED, null, "AI interview evaluation recommended rejection");
+                } else if (recommendation == HiringRecommendation.PROCEED) {
+                    transitionStatus(application, ApplicationStatus.CODING_ASSESSMENT_PENDING, null, "Coding assessment triggered automatically");
+                }
                 if (score != null) recordScore(applicationId, ScoreType.AI_INTERVIEW, score, "ai-interview-service");
                 yield true;
             }
