@@ -7,6 +7,7 @@ import { TopbarComponent } from '../../shared/components/topbar.component';
 import { TeamRole } from '../models/company.model';
 import { AssessmentType, Difficulty, ProgrammingLanguage } from '../models/coding-assessment.model';
 import { RoundType } from '../models/interview-management.model';
+import { EmploymentType, JobDetailResponse, JobStatus, WorkType } from '../models/job.model';
 
 @Component({
   selector: 'app-recruiter-layout',
@@ -36,7 +37,7 @@ import { RoundType } from '../models/interview-management.model';
         <div class="modal" (click)="$event.stopPropagation()">
           <div class="modal-head">
             <div>
-              <h3 id="job-modal-title">{{ isEditMode() ? 'Edit job - Backend Engineer' : 'Create a new job' }}</h3>
+              <h3 id="job-modal-title">{{ isEditMode() ? 'Edit job - ' + jobTitle() : 'Create a new job' }}</h3>
               <p>Define role requirements, budget, and coding assessments.</p>
             </div>
             <button class="modal-close" (click)="state.closeModal()" aria-label="Close dialog">
@@ -206,7 +207,7 @@ import { RoundType } from '../models/interview-management.model';
             <div class="foot-right">
               <button class="btn-ghost" (click)="state.closeModal()">Cancel</button>
               <button class="btn-primary-sm" (click)="wizardNext()">
-                {{ wizardStep() === 4 ? (publishMode() === 'publish' ? 'Publish job' : 'Save draft') : 'Continue' }}
+                {{ wizardStep() === 4 ? (isEditMode() ? 'Save changes' : (publishMode() === 'publish' ? 'Publish job' : 'Save draft')) : 'Continue' }}
               </button>
             </div>
           </div>
@@ -638,7 +639,14 @@ export class RecruiterLayoutComponent {
 
   constructor(public state: AppStateService, public router: Router) {
     effect(() => {
-      if (this.state.activeModal() === 'job' && !this.isEditMode()) {
+      if (this.state.activeModal() !== 'job') {
+        return;
+      }
+      const editing = this.state.editingJob();
+      if (editing) {
+        this.populateJobWizardForEdit(editing);
+      } else {
+        this.isEditMode.set(false);
         this.resetJobWizard();
       }
     });
@@ -687,7 +695,69 @@ export class RecruiterLayoutComponent {
     this.jobDeadline.set('');
   }
 
+  private static readonly WORK_TYPE_LABELS: Record<WorkType, string> = {
+    [WorkType.HYBRID]: 'Hybrid',
+    [WorkType.REMOTE]: 'Remote',
+    [WorkType.ON_SITE]: 'On-site',
+  };
+
+  private static readonly EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
+    [EmploymentType.FULL_TIME]: 'Full-time',
+    [EmploymentType.PART_TIME]: 'Part-time',
+    [EmploymentType.CONTRACT]: 'Contract',
+    [EmploymentType.INTERNSHIP]: 'Full-time', // no dedicated dropdown option -- closest available
+  };
+
+  /** Reverses parseExperienceRange()'s min/max numbers back to the closest matching dropdown option. */
+  private experienceRangeLabel(min: number | null | undefined, max: number | null | undefined): string {
+    if (min == null && max == null) return '3-6 years';
+    if (min != null && max == null) return `${min}+ years`;
+    if (min === 0 && max === 2) return '0-2 years';
+    if (min === 3 && max === 6) return '3-6 years';
+    if (min === 5 && max === 8) return '5-8 years';
+    return `${min ?? 0}-${max ?? min} years`;
+  }
+
+  /** Reverses parseNoticePeriod()'s day count back to the closest matching dropdown option. */
+  private noticePeriodLabel(days: number | null | undefined): string {
+    if (days == null) return 'Any';
+    if (days <= 30) return '30 days';
+    if (days <= 60) return '60 days';
+    return '90 days';
+  }
+
+  populateJobWizardForEdit(job: JobDetailResponse) {
+    this.isEditMode.set(true);
+    this.wizardStep.set(1);
+    this.jobTitle.set(job.title);
+    const dept = this.state.departments().find((d) => d.id === job.departmentId);
+    this.jobDept.set(dept?.departmentName ?? '');
+    this.jobDesc.set(job.descriptionHtml ?? '');
+    this.jobWorkType.set(job.workType ? RecruiterLayoutComponent.WORK_TYPE_LABELS[job.workType] : 'Hybrid');
+    this.jobLoc.set(job.location ?? '');
+    this.jobEmpType.set(job.employmentType ? RecruiterLayoutComponent.EMPLOYMENT_TYPE_LABELS[job.employmentType] : 'Full-time');
+    this.jobOpenings.set(job.numberOfOpenings ?? 1);
+    this.jobExp.set(this.experienceRangeLabel(job.requirements?.minExperienceYears, job.requirements?.maxExperienceYears));
+    this.jobSalMin.set(job.requirements?.minSalary ?? 12);
+    this.jobSalMax.set(job.requirements?.maxSalary ?? 28);
+    this.jobNotice.set(this.noticePeriodLabel(job.requirements?.noticePeriodDays));
+    this.jobDeadline.set(job.applicationDeadline ?? '');
+    this.publishMode.set(job.status === JobStatus.DRAFT ? 'draft' : 'publish');
+
+    const enabledStages = new Set(job.pipelineStages.filter((s) => s.enabled).map((s) => s.stageName));
+    // Falls back to enabled (true) for a stage that doesn't exist on the job yet --
+    // matches resetJobWizard()'s create-mode default so a job saved before a stage
+    // existed doesn't look like that stage was deliberately turned off.
+    const hasStage = (name: string) => (job.pipelineStages.some((s) => s.stageName === name) ? enabledStages.has(name) : true);
+    this.stageScreening.set(hasStage('AI Resume Screening'));
+    this.stageAiInterview.set(hasStage('AI Interview'));
+    this.stageCoding.set(hasStage('Coding Assessment'));
+    this.stageTech.set(hasStage('Technical Interview'));
+    this.stageHr.set(hasStage('HR Interview'));
+  }
+
   openJobWizard() {
+    this.state.editingJob.set(null);
     this.isEditMode.set(false);
     this.resetJobWizard();
     this.state.openModal('job');
@@ -712,6 +782,31 @@ export class RecruiterLayoutComponent {
         return;
       }
       this.wizardStep.update(s => s + 1);
+    } else if (this.isEditMode()) {
+      const editing = this.state.editingJob();
+      if (!editing) return;
+      this.state.updateJobFromWizard(editing.id, editing.status, {
+        title: this.jobTitle().trim(),
+        departmentName: this.jobDept(),
+        description: this.jobDesc().trim(),
+        workType: this.jobWorkType(),
+        location: this.jobLoc().trim(),
+        empType: this.jobEmpType(),
+        openings: this.jobOpenings(),
+        experienceRange: this.jobExp(),
+        salaryMin: this.jobSalMin(),
+        salaryMax: this.jobSalMax(),
+        noticePeriod: this.jobNotice(),
+        deadline: this.jobDeadline(),
+        stages: [
+          { name: 'AI Resume Screening', enabled: this.stageScreening() },
+          { name: 'AI Interview', enabled: this.stageAiInterview() },
+          { name: 'Coding Assessment', enabled: this.stageCoding() },
+          { name: 'Technical Interview', enabled: this.stageTech() },
+          { name: 'HR Interview', enabled: this.stageHr() },
+        ],
+        publish: this.publishMode() === 'publish',
+      });
     } else {
       // Done / Publish
       this.state.createJobFromWizard({

@@ -1,11 +1,13 @@
 import { Component, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AppStateService } from '../../core/services/app-state.service';
+import { JobService } from '../../core/services/job.service';
+import { SkeletonComponent } from '../../shared/components/skeleton.component';
 
 @Component({
   selector: 'app-jobs-list',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, SkeletonComponent],
   template: `
     <div class="jobs-viewport">
 
@@ -71,7 +73,7 @@ import { AppStateService } from '../../core/services/app-state.service';
         </div>
 
         <!-- Jobs Table -->
-        <table class="table" *ngIf="filteredJobs().length > 0; else emptyState">
+        <table class="table" *ngIf="!state.jobsLoading() && filteredJobs().length > 0; else jobsLoadingOrEmpty">
           <thead>
             <tr>
               <th>Job title</th>
@@ -133,15 +135,26 @@ import { AppStateService } from '../../core/services/app-state.service';
         </table>
 
         <!-- Empty state -->
-        <ng-template #emptyState>
-          <div class="empty-state">
-            <svg viewBox="0 0 24 24" fill="none">
-              <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/>
-              <path d="M21 21l-4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-            </svg>
-            <p>No jobs match your filters.</p>
-            <button (click)="clearFilters()">Clear filters</button>
+        <ng-template #jobsLoadingOrEmpty>
+          <div *ngIf="state.jobsLoading(); else emptyState" class="skeleton-rows">
+            <div class="skeleton-row" *ngFor="let _ of [1,2,3,4,5]">
+              <app-skeleton width="220px" height="14px" />
+              <app-skeleton width="100px" height="14px" />
+              <app-skeleton width="70px" height="14px" />
+              <app-skeleton width="60px" height="14px" />
+              <app-skeleton width="90px" height="14px" />
+            </div>
           </div>
+          <ng-template #emptyState>
+            <div class="empty-state">
+              <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M21 21l-4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+              <p>No jobs match your filters.</p>
+              <button (click)="clearFilters()">Clear filters</button>
+            </div>
+          </ng-template>
         </ng-template>
       </div>
 
@@ -157,6 +170,18 @@ import { AppStateService } from '../../core/services/app-state.service';
       gap: 18px;
       font-family: $font-sans;
     }
+    .skeleton-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      padding: 16px 0;
+    }
+    .skeleton-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
   `]
 })
 export class JobsListComponent {
@@ -164,7 +189,7 @@ export class JobsListComponent {
   activeTab    = signal<string>('All');
   selectedDept = signal<string>('All departments');
 
-  constructor(public state: AppStateService) {}
+  constructor(public state: AppStateService, private jobService: JobService) {}
 
   allCount = computed(() => this.state.jobs().length);
   publishedCount = computed(() => this.state.jobs().filter(j => j.status === 'published').length);
@@ -185,7 +210,13 @@ export class JobsListComponent {
   });
 
   editJob(jobId: string) {
-    this.state.openModal('job');
+    this.jobService.getJobDetail(jobId).subscribe({
+      next: (res) => {
+        this.state.editingJob.set(res.data);
+        this.state.openModal('job');
+      },
+      error: (err) => this.state.showToast(err?.error?.message ?? 'Could not load this job.'),
+    });
   }
 
   archiveJob(jobId: string) {

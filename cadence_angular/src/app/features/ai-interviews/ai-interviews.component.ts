@@ -2,6 +2,7 @@ import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AppStateService } from '../../core/services/app-state.service';
 import { InterviewCompletedItemResponse, InterviewQueueItemResponse, InterviewSessionStatus } from '../../core/models/ai-interview.model';
+import { SkeletonComponent } from '../../shared/components/skeleton.component';
 
 const STATUS_FILTER_MAP: Record<string, InterviewSessionStatus | undefined> = {
   all: undefined,
@@ -14,7 +15,7 @@ const STATUS_FILTER_MAP: Record<string, InterviewSessionStatus | undefined> = {
 @Component({
   selector: 'app-ai-interviews',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, SkeletonComponent],
   template: `
     <div class="ai-interviews-viewport">
       <div class="page-head">
@@ -44,7 +45,15 @@ const STATUS_FILTER_MAP: Record<string, InterviewSessionStatus | undefined> = {
                 </div>
               </div>
 
-              <table class="table">
+              <div class="skeleton-rows" *ngIf="state.aiInterviewQueueLoading()">
+                <div class="skeleton-row" *ngFor="let _ of [1,2,3,4,5]">
+                  <app-skeleton width="200px" height="14px" />
+                  <app-skeleton width="120px" height="14px" />
+                  <app-skeleton width="80px" height="14px" />
+                  <app-skeleton width="90px" height="14px" />
+                </div>
+              </div>
+              <table class="table" *ngIf="!state.aiInterviewQueueLoading()">
                 <thead>
                   <tr><th>Candidate</th><th>Job</th><th>Status</th><th>Due / completed</th><th></th></tr>
                 </thead>
@@ -70,7 +79,7 @@ const STATUS_FILTER_MAP: Record<string, InterviewSessionStatus | undefined> = {
                   </tr>
                 </tbody>
               </table>
-              <div class="empty-state" *ngIf="!state.aiInterviewQueue().length"><p>No interviews in this filter.</p></div>
+              <div class="empty-state" *ngIf="!state.aiInterviewQueueLoading() && !state.aiInterviewQueue().length"><p>No interviews in this filter.</p></div>
             </div>
           </div>
 
@@ -218,6 +227,19 @@ const STATUS_FILTER_MAP: Record<string, InterviewSessionStatus | undefined> = {
       flex-direction: column;
       gap: 20px;
       font-family: $font-sans;
+    }
+
+    .skeleton-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      padding: 16px 0;
+    }
+    .skeleton-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
     }
 
     .kpi-row {

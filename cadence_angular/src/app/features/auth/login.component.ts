@@ -16,7 +16,7 @@ import { mapUserResponseToUserModel } from '../../core/utils/user.mapper';
 
         <!-- ================= BRAND PANEL ================= -->
         <aside class="brand-panel">
-          <div class="brandmark"><span class="mark">C</span> Cadence</div>
+          <div class="brandmark"><span class="mark">H</span> HirePilot</div>
 
           <div class="brand-copy">
             <h1>Every candidate,<br>one <em>live</em> pipeline.</h1>
@@ -52,14 +52,14 @@ import { mapUserResponseToUserModel } from '../../core/utils/user.mapper';
           </div>
 
           <div class="brand-stat">
-            <strong>38% faster</strong> average time-to-hire reported across Cadence workspaces this quarter.
+            <strong>38% faster</strong> average time-to-hire reported across HirePilot workspaces this quarter.
           </div>
         </aside>
 
         <!-- ================= FORM PANEL ================= -->
         <main class="form-panel">
           <div class="form-card">
-            <div class="mobile-mark"><span class="mark">C</span> Cadence</div>
+            <div class="mobile-mark"><span class="mark">H</span> HirePilot</div>
 
             <!-- ---------------- LOGIN ---------------- -->
             <section class="view active" id="view-login">
@@ -78,7 +78,7 @@ import { mapUserResponseToUserModel } from '../../core/utils/user.mapper';
                     <label for="team-email">Work email</label>
                     <div class="input-wrap has-icon">
                       <svg class="icon-left" viewBox="0 0 24 24"><path d="M3 6l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>
-                      <input id="team-email" type="email" placeholder="you@company.com" (input)="clearErrors()" autocomplete="email" [class.field-error]="emailError()" #teamEmailInput>
+                      <input id="team-email" type="email" placeholder="you@company.com" (input)="clearErrors()" autocomplete="email" [class.field-error]="emailError()" [disabled]="isSubmitting()" #teamEmailInput>
                     </div>
                     <div class="field-error-msg" [class.show]="emailError()">{{ emailError() || 'Enter your work email to continue.' }}</div>
                   </div>
@@ -88,15 +88,18 @@ import { mapUserResponseToUserModel } from '../../core/utils/user.mapper';
                       <button type="button" class="link" style="background:none;border:none;color:var(--indigo);font-size:12px;cursor:pointer;padding:0;font-family:'Inter',sans-serif;" (click)="forgotPassword()">Forgot password?</button>
                     </div>
                     <div class="input-wrap">
-                      <input id="team-pass" [type]="showPassword() ? 'text' : 'password'" placeholder="••••••••" (input)="clearErrors()" autocomplete="current-password" [class.field-error]="passwordError()" #teamPasswordInput>
+                      <input id="team-pass" [type]="showPassword() ? 'text' : 'password'" placeholder="••••••••" (input)="clearErrors()" autocomplete="current-password" [class.field-error]="passwordError()" [disabled]="isSubmitting()" #teamPasswordInput>
                       <button type="button" class="toggle-eye" (click)="showPassword.set(!showPassword())" aria-label="Show password">
                         <svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
                       </button>
                     </div>
                     <div class="field-error-msg" [class.show]="passwordError()">{{ passwordError() || 'Enter your password to continue.' }}</div>
                   </div>
-                  <label class="checkbox-row"><input type="checkbox" #rememberMeInput> Keep me signed in on this device</label>
-                  <button class="btn-primary" type="submit">Continue</button>
+                  <label class="checkbox-row"><input type="checkbox" [disabled]="isSubmitting()" #rememberMeInput> Keep me signed in on this device</label>
+                  <button class="btn-primary" type="submit" [disabled]="isSubmitting()">
+                    <span *ngIf="!isSubmitting()">Continue</span>
+                    <span *ngIf="isSubmitting()" class="btn-spinner-row"><span class="btn-spinner"></span> Signing in…</span>
+                  </button>
                 </form>
 
                 <p class="footer-note">New company? <button type="button" class="link" (click)="registerCompany()">Create a workspace</button></p>
@@ -112,7 +115,7 @@ import { mapUserResponseToUserModel } from '../../core/utils/user.mapper';
                     <label for="cand-email">Email</label>
                     <div class="input-wrap has-icon">
                       <svg class="icon-left" viewBox="0 0 24 24"><path d="M3 6l9 6 9-6"/><rect x="3" y="5" width="18" height="14" rx="2"/></svg>
-                      <input id="cand-email" type="email" placeholder="you@email.com" (input)="clearErrors()" autocomplete="email" [class.field-error]="emailError()" #candEmailInput>
+                      <input id="cand-email" type="email" placeholder="you@email.com" (input)="clearErrors()" autocomplete="email" [class.field-error]="emailError()" [disabled]="isSubmitting()" #candEmailInput>
                     </div>
                     <div class="field-error-msg" [class.show]="emailError()">{{ emailError() || 'Enter your email to continue.' }}</div>
                   </div>
@@ -122,18 +125,21 @@ import { mapUserResponseToUserModel } from '../../core/utils/user.mapper';
                       <button type="button" style="background:none;border:none;color:var(--indigo);font-size:12px;cursor:pointer;padding:0;font-family:'Inter',sans-serif;" (click)="forgotPassword()">Forgot password?</button>
                     </div>
                     <div class="input-wrap">
-                      <input id="cand-pass" [type]="showPassword() ? 'text' : 'password'" placeholder="••••••••" (input)="clearErrors()" autocomplete="current-password" [class.field-error]="passwordError()" #candPasswordInput>
+                      <input id="cand-pass" [type]="showPassword() ? 'text' : 'password'" placeholder="••••••••" (input)="clearErrors()" autocomplete="current-password" [class.field-error]="passwordError()" [disabled]="isSubmitting()" #candPasswordInput>
                       <button type="button" class="toggle-eye" (click)="showPassword.set(!showPassword())" aria-label="Show password">
                         <svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
                       </button>
                     </div>
                     <div class="field-error-msg" [class.show]="passwordError()">{{ passwordError() || 'Enter your password to continue.' }}</div>
                   </div>
-                  <button class="btn-primary" type="submit" style="margin-top:4px;">Sign in</button>
+                  <button class="btn-primary" type="submit" style="margin-top:4px;" [disabled]="isSubmitting()">
+                    <span *ngIf="!isSubmitting()">Sign in</span>
+                    <span *ngIf="isSubmitting()" class="btn-spinner-row"><span class="btn-spinner"></span> Signing in…</span>
+                  </button>
                 </form>
 
                 <div class="divider">or continue with</div>
-                <button type="button" class="btn-secondary" (click)="authService.startGoogleLogin()">
+                <button type="button" class="btn-secondary" (click)="authService.startGoogleLogin()" [disabled]="isSubmitting()">
                   <svg viewBox="0 0 24 24" width="16" height="16"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.7-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z"/><path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.1-4 1.1-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1C3.4 21.4 7.4 24 12 24z"/><path fill="#FBBC05" d="M5.4 14.3c-.2-.7-.4-1.5-.4-2.3s.1-1.6.4-2.3V6.6H1.4C.5 8.3 0 10.1 0 12s.5 3.7 1.4 5.4l4-3.1z"/><path fill="#EA4335" d="M12 4.8c1.7 0 3.3.6 4.5 1.8l3.4-3.4C17.9 1.2 15.2 0 12 0 7.4 0 3.4 2.6 1.4 6.6l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"/></svg>
                   Google
                 </button>
@@ -163,6 +169,27 @@ import { mapUserResponseToUserModel } from '../../core/utils/user.mapper';
       .app {
         grid-template-columns: 1fr;
       }
+    }
+    .btn-primary:disabled {
+      opacity: 0.7;
+      cursor: not-allowed;
+    }
+    .btn-spinner-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .btn-spinner {
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.4);
+      border-top-color: #fff;
+      border-radius: 50%;
+      display: inline-block;
+      animation: btn-spin 0.7s linear infinite;
+    }
+    @keyframes btn-spin {
+      to { transform: rotate(360deg); }
     }
   `]
 })

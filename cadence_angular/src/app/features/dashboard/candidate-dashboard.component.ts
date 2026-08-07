@@ -4,11 +4,12 @@ import { Router } from '@angular/router';
 import { AppStateService } from '../../core/services/app-state.service';
 import { JobService } from '../../core/services/job.service';
 import { CandidateJobSummaryResponse } from '../../core/models/job.model';
+import { SkeletonComponent } from '../../shared/components/skeleton.component';
 
 @Component({
   selector: 'app-candidate-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, SkeletonComponent],
   template: `
     <section class="section csection active" id="csec-dashboard">
       <!-- Page Head -->
@@ -19,6 +20,7 @@ import { CandidateJobSummaryResponse } from '../../core/models/job.model';
         </div>
       </div>
 
+      <ng-container *ngIf="!state.candidateDashboardLoading(); else dashboardSkeleton">
       <!-- Row 2: Profile Completion + AI Resume Score -->
       <div class="row-2">
         <!-- Profile Completion Card -->
@@ -163,9 +165,38 @@ import { CandidateJobSummaryResponse } from '../../core/models/job.model';
           <button class="btn-ghost" (click)="goToAssessments()">Start coding assessment</button>
         </div>
       </div>
+      </ng-container>
+      <ng-template #dashboardSkeleton>
+        <div class="row-2">
+          <div class="card" *ngFor="let _ of [1,2]">
+            <app-skeleton width="50%" height="16px" />
+            <div style="height:16px;"></div>
+            <app-skeleton width="100%" height="60px" />
+          </div>
+        </div>
+        <div class="skeleton-rows" style="margin-top:20px;">
+          <div class="skeleton-row" *ngFor="let _ of [1,2,3]">
+            <app-skeleton width="220px" height="14px" />
+            <app-skeleton width="100px" height="14px" />
+          </div>
+        </div>
+      </ng-template>
     </section>
   `,
-  styles: []
+  styles: [`
+    .skeleton-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      padding: 16px 0;
+    }
+    .skeleton-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+  `]
 })
 export class CandidateDashboardComponent implements OnInit {
   constructor(public state: AppStateService, public router: Router, private jobService: JobService) {}

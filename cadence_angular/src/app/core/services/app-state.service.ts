@@ -16,6 +16,7 @@ import { JobService } from './job.service';
 import { jobSummaryToJob } from '../utils/job.mapper';
 import {
   EmploymentType,
+  JobDetailResponse,
   JobStatus,
   PipelineStageRequest,
   StatusChangeRequest,
@@ -160,7 +161,11 @@ export class AppStateService {
   toastMessage = signal<string | null>(null);
 
   jobs = signal<Job[]>([]);
+  jobsLoading = signal<boolean>(false);
   candidates = signal<Candidate[]>([]);
+
+  /** Set right before opening the 'job' modal in edit mode; null means the modal is in create mode. */
+  editingJob = signal<JobDetailResponse | null>(null);
 
   recruiterChatHistory = signal<ChatMessage[]>([]);
   candidateChatHistory = signal<ChatMessage[]>([]);
@@ -189,6 +194,7 @@ export class AppStateService {
   // Candidate module state (candidate-service) -- real backend data, not mock.
   candidateProfile = signal<CandidateProfileResponse | null>(null);
   candidateDashboard = signal<DashboardResponse | null>(null);
+  candidateDashboardLoading = signal<boolean>(false);
   savedJobIds = signal<Set<string>>(new Set());
 
   // Resume module state (resume-service) -- real backend data, not mock.
@@ -198,7 +204,9 @@ export class AppStateService {
   // candidateApplications: the signed-in candidate's own applications ("My Applications").
   // companyApplications / selectedApplication: the recruiter's company-wide pipeline view.
   candidateApplications = signal<ApplicationResponse[]>([]);
+  myApplicationsLoading = signal<boolean>(false);
   companyApplications = signal<ApplicationResponse[]>([]);
+  companyApplicationsLoading = signal<boolean>(false);
   selectedApplication = signal<ApplicationResponse | null>(null);
 
   // Resume Parser module state (resume-parser-service) -- real backend data, not mock.
@@ -213,10 +221,12 @@ export class AppStateService {
 
   // AI Interview module state (ai-interview-service) -- real backend data, not mock.
   aiShortlisted = signal<ShortlistItemResponse[]>([]);
+  aiShortlistLoading = signal<boolean>(false);
   aiRejected = signal<ShortlistItemResponse[]>([]);
   aiManualReview = signal<ShortlistItemResponse[]>([]);
   aiShortlistSummary = signal<ShortlistSummaryResponse | null>(null);
   aiInterviewQueue = signal<InterviewQueueItemResponse[]>([]);
+  aiInterviewQueueLoading = signal<boolean>(false);
   aiInterviewAnalysisSummary = signal<InterviewAnalysisSummaryResponse | null>(null);
   aiCompletedInterviews = signal<InterviewCompletedItemResponse[]>([]);
   aiInterviewReport = signal<InterviewEvaluationReportResponse | null>(null);
@@ -228,11 +238,13 @@ export class AppStateService {
 
   // Coding Assessment module state (coding-assessment-service) -- real backend data, not mock.
   codingAssessmentsList = signal<AssessmentListItemResponse[]>([]);
+  codingAssessmentsListLoading = signal<boolean>(false);
   questionBankList = signal<QuestionResponse[]>([]);
   questionBankLoading = signal<boolean>(false);
   activeQuestionBank = signal<QuestionResponse[]>([]);
   selectedQuestion = signal<QuestionResponse | null>(null);
   codingAssessmentQueue = signal<CodingQueueItemResponse[]>([]);
+  codingAssessmentQueueLoading = signal<boolean>(false);
   codingResultsSummary = signal<CodingResultsSummaryResponse | null>(null);
   codingLeaderboard = signal<LeaderboardItemResponse[]>([]);
   codingCompletedList = signal<LeaderboardItemResponse[]>([]);
@@ -424,9 +436,17 @@ export class AppStateService {
   // ---- Jobs actions (job-service) ----
 
   loadJobs(onLoaded?: () => void) {
+    this.jobsLoading.set(true);
     this.jobService.search({}).subscribe({
-      next: (res) => { this.jobs.set(res.data.content.map(jobSummaryToJob)); onLoaded?.(); },
-      error: () => this.showToast('Could not load jobs.'),
+      next: (res) => {
+        this.jobs.set(res.data.content.map(jobSummaryToJob));
+        this.jobsLoading.set(false);
+        onLoaded?.();
+      },
+      error: () => {
+        this.showToast('Could not load jobs.');
+        this.jobsLoading.set(false);
+      },
     });
   }
 
@@ -527,6 +547,77 @@ export class AppStateService {
           this.loadJobs(() => onCreated?.(res.data.id));
         },
         error: (err) => this.showToast(err?.error?.message ?? 'Could not save this job.'),
+      });
+  }
+
+  /**
+   * The edit-mode counterpart to createJobFromWizard() -- same 3-step incremental
+   * save (basic info -> requirements -> pipeline stages), skipping createDraft()
+   * since the job already exists. Only calls publish() if the job isn't already
+   * published, so re-editing a live job never errors or no-ops on a redundant
+   * publish call.
+   */
+  updateJobFromWizard(jobId: string, currentStatus: JobStatus, params: {
+    title: string;
+    departmentName: string;
+    description: string;
+    workType: string;
+    location: string;
+    empType: string;
+    openings: number;
+    experienceRange: string;
+    salaryMin: number;
+    salaryMax: number;
+    noticePeriod: string;
+    deadline: string;
+    stages: { name: string; enabled: boolean }[];
+    publish: boolean;
+  }) {
+    const dept = this.departments().find((d) => d.departmentName === params.departmentName);
+    const [minExperienceYears, maxExperienceYears] = this.parseExperienceRange(params.experienceRange);
+
+    this.jobService
+      .updateBasicInfo(jobId, {
+        title: params.title,
+        departmentId: dept?.id,
+        numberOfOpenings: params.openings,
+        location: params.location,
+        workType: AppStateService.WORK_TYPE_MAP[params.workType],
+        employmentType: AppStateService.EMPLOYMENT_TYPE_MAP[params.empType],
+        applicationDeadline: params.deadline || undefined,
+        descriptionHtml: params.description,
+      })
+      .pipe(
+        switchMap((updated) =>
+          this.jobService.updateRequirements(updated.data.id, {
+            minExperienceYears,
+            maxExperienceYears,
+            minSalary: params.salaryMin,
+            maxSalary: params.salaryMax,
+            salaryCurrency: 'INR',
+            noticePeriodDays: this.parseNoticePeriod(params.noticePeriod),
+          })
+        ),
+        switchMap((updated) => {
+          const stages: PipelineStageRequest[] = params.stages.map((s, i) => ({
+            stageName: s.name,
+            stageOrder: i + 1,
+            enabled: s.enabled,
+          }));
+          return this.jobService.updatePipelineStages(updated.data.id, { stages });
+        }),
+        switchMap((updated) =>
+          params.publish && currentStatus === JobStatus.DRAFT ? this.jobService.publish(updated.data.id) : [updated]
+        )
+      )
+      .subscribe({
+        next: () => {
+          this.showToast('Job updated');
+          this.closeModal();
+          this.editingJob.set(null);
+          this.loadJobs();
+        },
+        error: (err) => this.showToast(err?.error?.message ?? 'Could not update this job.'),
       });
   }
 
@@ -634,9 +725,16 @@ export class AppStateService {
   }
 
   loadCandidateDashboard() {
+    this.candidateDashboardLoading.set(true);
     this.candidateService.getDashboard().subscribe({
-      next: (res) => this.candidateDashboard.set(res.data),
-      error: () => this.showToast('Could not load your dashboard.'),
+      next: (res) => {
+        this.candidateDashboard.set(res.data);
+        this.candidateDashboardLoading.set(false);
+      },
+      error: () => {
+        this.showToast('Could not load your dashboard.');
+        this.candidateDashboardLoading.set(false);
+      },
     });
   }
 
@@ -1426,9 +1524,16 @@ export class AppStateService {
   // Candidate-facing (apply/withdraw/track/offer response) --
 
   loadMyApplications() {
+    this.myApplicationsLoading.set(true);
     this.applicationService.listMyApplications().subscribe({
-      next: (res) => this.candidateApplications.set(res.data),
-      error: () => this.showToast('Could not load your applications.'),
+      next: (res) => {
+        this.candidateApplications.set(res.data);
+        this.myApplicationsLoading.set(false);
+      },
+      error: () => {
+        this.showToast('Could not load your applications.');
+        this.myApplicationsLoading.set(false);
+      },
     });
   }
 
@@ -1469,9 +1574,16 @@ export class AppStateService {
   loadCompanyApplications(criteria: ApplicationSearchCriteria = {}) {
     const companyId = this.companyId;
     if (!companyId) return;
+    this.companyApplicationsLoading.set(true);
     this.applicationService.searchCompanyApplications(companyId, criteria).subscribe({
-      next: (res) => this.companyApplications.set(res.data.content),
-      error: () => this.showToast('Could not load the candidate pipeline.'),
+      next: (res) => {
+        this.companyApplications.set(res.data.content);
+        this.companyApplicationsLoading.set(false);
+      },
+      error: () => {
+        this.showToast('Could not load the candidate pipeline.');
+        this.companyApplicationsLoading.set(false);
+      },
     });
   }
 
@@ -1592,9 +1704,16 @@ export class AppStateService {
   // ---- AI Interview module actions (ai-interview-service) ----
 
   loadAiShortlisted(jobId: string) {
+    this.aiShortlistLoading.set(true);
     this.aiInterviewService.getShortlisted(jobId).subscribe({
-      next: (res) => this.aiShortlisted.set(res.data.content),
-      error: () => this.showToast('Could not load shortlisted candidates.'),
+      next: (res) => {
+        this.aiShortlisted.set(res.data.content);
+        this.aiShortlistLoading.set(false);
+      },
+      error: () => {
+        this.showToast('Could not load shortlisted candidates.');
+        this.aiShortlistLoading.set(false);
+      },
     });
   }
 
@@ -1671,9 +1790,16 @@ export class AppStateService {
   }
 
   loadAiInterviewQueue(jobId: string, status?: InterviewSessionStatus) {
+    this.aiInterviewQueueLoading.set(true);
     this.aiInterviewService.getQueue(jobId, status).subscribe({
-      next: (res) => this.aiInterviewQueue.set(res.data.content),
-      error: () => this.showToast('Could not load the interview queue.'),
+      next: (res) => {
+        this.aiInterviewQueue.set(res.data.content);
+        this.aiInterviewQueueLoading.set(false);
+      },
+      error: () => {
+        this.showToast('Could not load the interview queue.');
+        this.aiInterviewQueueLoading.set(false);
+      },
     });
   }
 
@@ -1910,9 +2036,16 @@ export class AppStateService {
   // Recruiter-facing --
 
   loadCodingAssessments(status?: AssessmentStatus) {
+    this.codingAssessmentsListLoading.set(true);
     this.codingAssessmentService.list(status).subscribe({
-      next: (res) => this.codingAssessmentsList.set(res.data.content),
-      error: () => this.showToast('Could not load assessments.'),
+      next: (res) => {
+        this.codingAssessmentsList.set(res.data.content);
+        this.codingAssessmentsListLoading.set(false);
+      },
+      error: () => {
+        this.showToast('Could not load assessments.');
+        this.codingAssessmentsListLoading.set(false);
+      },
     });
   }
 
@@ -1957,9 +2090,16 @@ export class AppStateService {
   }
 
   loadCodingAssessmentQueue(assessmentId: string, status?: CandidateAssessmentStatus) {
+    this.codingAssessmentQueueLoading.set(true);
     this.codingAssessmentService.getQueue(assessmentId, status).subscribe({
-      next: (res) => this.codingAssessmentQueue.set(res.data.content),
-      error: () => this.showToast('Could not load the assessment queue.'),
+      next: (res) => {
+        this.codingAssessmentQueue.set(res.data.content);
+        this.codingAssessmentQueueLoading.set(false);
+      },
+      error: () => {
+        this.showToast('Could not load the assessment queue.');
+        this.codingAssessmentQueueLoading.set(false);
+      },
     });
   }
 

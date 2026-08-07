@@ -14,8 +14,8 @@ import { AuthService } from '../../core/services/auth.service';
       <!-- Left Panel: Brand Details -->
       <div class="brand-panel">
         <div class="brand-header">
-          <div class="logo">C</div>
-          <h2>Cadence</h2>
+          <div class="logo">H</div>
+          <h2>HirePilot</h2>
         </div>
         <div class="brand-content">
           <h1>Security.</h1>

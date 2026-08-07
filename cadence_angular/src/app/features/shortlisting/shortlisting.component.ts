@@ -2,11 +2,12 @@ import { Component, OnInit, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AppStateService } from '../../core/services/app-state.service';
 import { ShortlistItemResponse } from '../../core/models/ai-interview.model';
+import { SkeletonComponent } from '../../shared/components/skeleton.component';
 
 @Component({
   selector: 'app-shortlisting',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, SkeletonComponent],
   template: `
     <div class="shortlist-viewport">
       <div class="page-head">
@@ -36,7 +37,7 @@ import { ShortlistItemResponse } from '../../core/models/ai-interview.model';
       </div>
 
       <div class="row-2">
-      <div class="card">
+      <div class="card" *ngIf="!state.aiShortlistLoading(); else shortlistSkeleton">
         <div class="filter-row">
           <div class="filter-tabs">
             <button [class.active]="activeTab() === 'shortlisted'" (click)="activeTab.set('shortlisted')">Shortlisted {{ state.aiShortlisted().length }}</button>
@@ -134,6 +135,18 @@ import { ShortlistItemResponse } from '../../core/models/ai-interview.model';
           <div class="empty-state" *ngIf="!state.aiManualReview().length"><p>Nothing needs manual review right now.</p></div>
         </div>
       </div>
+      <ng-template #shortlistSkeleton>
+        <div class="card">
+          <div class="skeleton-rows">
+            <div class="skeleton-row" *ngFor="let _ of [1,2,3,4,5]">
+              <app-skeleton width="200px" height="14px" />
+              <app-skeleton width="120px" height="14px" />
+              <app-skeleton width="80px" height="14px" />
+              <app-skeleton width="70px" height="14px" />
+            </div>
+          </div>
+        </div>
+      </ng-template>
 
       <!-- Right analytics column -->
       <div class="card">
@@ -170,6 +183,19 @@ import { ShortlistItemResponse } from '../../core/models/ai-interview.model';
       flex-direction: column;
       gap: 20px;
       font-family: $font-sans;
+    }
+
+    .skeleton-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      padding: 16px 0;
+    }
+    .skeleton-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
     }
 
     .kpi-row {

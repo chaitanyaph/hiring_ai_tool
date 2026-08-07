@@ -47,7 +47,7 @@ import { applicationStageLabel, compareToCurrentStage } from '../../core/utils/a
                   <span class="tl-title">Applied</span>
                   <span class="tl-date">{{ app.appliedAt | date: 'MMM d, y' }}</span>
                 </div>
-                <div class="tl-card"><span class="tl-note">Applied via <b>Cadence job search</b>.</span></div>
+                <div class="tl-card"><span class="tl-note">Applied via <b>HirePilot job search</b>.</span></div>
               </div>
             </div>
 

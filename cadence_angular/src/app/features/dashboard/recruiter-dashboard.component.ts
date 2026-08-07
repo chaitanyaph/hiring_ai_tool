@@ -5,11 +5,12 @@ import { AppStateService } from '../../core/services/app-state.service';
 import { Candidate } from '../../core/models/models';
 import { ApplicationResponse, ApplicationStage, ApplicationStatus } from '../../core/models/application.model';
 import { compareToCurrentStage } from '../../core/utils/application.mapper';
+import { SkeletonComponent } from '../../shared/components/skeleton.component';
 
 @Component({
   selector: 'app-recruiter-dashboard',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, SkeletonComponent],
   template: `
     <div class="dashboard-wrap">
       <!-- Page Heading -->
@@ -20,26 +21,37 @@ import { compareToCurrentStage } from '../../core/utils/application.mapper';
         </div>
       </div>
 
-      <!-- KPI Row -->
-      <div class="kpi-row">
-        <div class="kpi-card">
-          <div class="kpi-label">Total applications</div>
-          <div class="kpi-value">{{ kpis().totalApplications }}</div>
+      <ng-container *ngIf="!state.companyApplicationsLoading(); else kpiSkeleton">
+        <!-- KPI Row -->
+        <div class="kpi-row">
+          <div class="kpi-card">
+            <div class="kpi-label">Total applications</div>
+            <div class="kpi-value">{{ kpis().totalApplications }}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Open positions</div>
+            <div class="kpi-value">{{ kpis().openPositions }}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Candidates in pipeline</div>
+            <div class="kpi-value">{{ kpis().inPipeline }}</div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-label">Avg. time to hire</div>
+            <div class="kpi-value">{{ kpis().avgTimeToHireDays !== null ? kpis().avgTimeToHireDays + 'd' : 'N/A' }}</div>
+            <div class="kpi-trend" *ngIf="kpis().avgTimeToHireDays === null"><span class="muted">No hires yet</span></div>
+          </div>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Open positions</div>
-          <div class="kpi-value">{{ kpis().openPositions }}</div>
+      </ng-container>
+      <ng-template #kpiSkeleton>
+        <div class="kpi-row">
+          <div class="kpi-card" *ngFor="let _ of [1,2,3,4]">
+            <app-skeleton width="70%" height="12px" />
+            <div style="height:8px;"></div>
+            <app-skeleton width="45%" height="24px" />
+          </div>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Candidates in pipeline</div>
-          <div class="kpi-value">{{ kpis().inPipeline }}</div>
-        </div>
-        <div class="kpi-card">
-          <div class="kpi-label">Avg. time to hire</div>
-          <div class="kpi-value">{{ kpis().avgTimeToHireDays !== null ? kpis().avgTimeToHireDays + 'd' : 'N/A' }}</div>
-          <div class="kpi-trend" *ngIf="kpis().avgTimeToHireDays === null"><span class="muted">No hires yet</span></div>
-        </div>
-      </div>
+      </ng-template>
 
       <!-- Interview funnel card -->
       <div class="card funnel-card" style="margin-bottom: 20px;">
@@ -49,7 +61,7 @@ import { compareToCurrentStage } from '../../core/utils/application.mapper';
             <div class="card-sub">Live pipeline across all open roles</div>
           </div>
         </div>
-        <div class="funnel">
+        <div class="funnel" *ngIf="!state.companyApplicationsLoading(); else funnelSkeleton">
           <div class="funnel-row">
             <div class="stage-name">Applicants</div>
             <div class="funnel-bar-track">
@@ -121,6 +133,15 @@ import { compareToCurrentStage } from '../../core/utils/application.mapper';
             <div class="conv"><b>{{ funnel().offer.pct }}%</b> of applicants</div>
           </div>
         </div>
+        <ng-template #funnelSkeleton>
+          <div class="funnel">
+            <div class="funnel-row" *ngFor="let _ of [1,2,3,4,5,6,7,8,9]">
+              <app-skeleton width="140px" height="12px" />
+              <app-skeleton width="100%" height="20px" />
+              <app-skeleton width="60px" height="12px" />
+            </div>
+          </div>
+        </ng-template>
       </div>
 
       <!-- Row 2: Charts and breakdowns -->
@@ -456,7 +477,13 @@ export class RecruiterDashboardComponent {
     };
   });
 
-  constructor(public state: AppStateService, public router: Router) {}
+  constructor(public state: AppStateService, public router: Router) {
+    // The KPI row, funnel, and resume-screening breakdown all read
+    // state.companyApplications() -- load it here so the dashboard shows real,
+    // current numbers even when it's the first page opened after login, rather
+    // than depending on some other route having already populated it.
+    this.state.loadCompanyApplications();
+  }
 
   viewProfile(candId: string) {
     const cand = this.state.candidates().find(c => c.id === candId);

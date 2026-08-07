@@ -4,11 +4,12 @@ import { Router } from '@angular/router';
 import { AppStateService } from '../../core/services/app-state.service';
 import { ApplicationResponse } from '../../core/models/application.model';
 import { applicationStageLabel } from '../../core/utils/application.mapper';
+import { SkeletonComponent } from '../../shared/components/skeleton.component';
 
 @Component({
   selector: 'app-candidates-list',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, SkeletonComponent],
   template: `
     <div class="candidates-viewport">
 
@@ -53,7 +54,7 @@ import { applicationStageLabel } from '../../core/utils/application.mapper';
           </select>
         </div>
 
-        <table class="table" *ngIf="filteredApplications().length > 0; else emptyState">
+        <table class="table" *ngIf="!state.companyApplicationsLoading() && filteredApplications().length > 0; else appsLoadingOrEmpty">
           <thead>
             <tr>
               <th>Candidate</th>
@@ -104,14 +105,24 @@ import { applicationStageLabel } from '../../core/utils/application.mapper';
           </tbody>
         </table>
 
-        <ng-template #emptyState>
-          <div class="empty-state">
-            <svg viewBox="0 0 24 24" fill="none">
-              <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="M21 21l-4-4" stroke="currentColor" stroke-width="1.8"/>
-            </svg>
-            <p>No candidates match your filters.</p>
-            <button class="btn-text" (click)="clearFilters()">Clear filters</button>
+        <ng-template #appsLoadingOrEmpty>
+          <div *ngIf="state.companyApplicationsLoading(); else emptyState" class="skeleton-rows">
+            <div class="skeleton-row" *ngFor="let _ of [1,2,3,4,5]">
+              <app-skeleton width="220px" height="14px" />
+              <app-skeleton width="100px" height="14px" />
+              <app-skeleton width="70px" height="14px" />
+              <app-skeleton width="60px" height="14px" />
+            </div>
           </div>
+          <ng-template #emptyState>
+            <div class="empty-state">
+              <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="M21 21l-4-4" stroke="currentColor" stroke-width="1.8"/>
+              </svg>
+              <p>No candidates match your filters.</p>
+              <button class="btn-text" (click)="clearFilters()">Clear filters</button>
+            </div>
+          </ng-template>
         </ng-template>
       </div>
     </div>
@@ -125,6 +136,19 @@ import { applicationStageLabel } from '../../core/utils/application.mapper';
       flex-direction: column;
       gap: 18px;
       font-family: $font-sans;
+    }
+
+    .skeleton-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      padding: 16px 0;
+    }
+    .skeleton-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
     }
 
     .muted {

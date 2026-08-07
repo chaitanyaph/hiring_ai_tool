@@ -220,7 +220,7 @@ export class CandidateSettingsComponent implements OnInit {
   }
 
   deleteAccount() {
-    if (confirm('Permanently delete your Cadence account?')) {
+    if (confirm('Permanently delete your HirePilot account?')) {
       this.state.showToast('Account deletion requested');
     }
   }

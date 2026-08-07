@@ -16,8 +16,8 @@ import { isValidEmail, validatePassword } from '../../core/utils/validators';
       <!-- Left Panel: Brand Details -->
       <div class="brand-panel">
         <div class="brand-header">
-          <div class="logo">C</div>
-          <h2>Cadence</h2>
+          <div class="logo">H</div>
+          <h2>HirePilot</h2>
         </div>
         <div class="brand-content">
           <h1>Hiring pipelines.</h1>
@@ -30,7 +30,7 @@ import { isValidEmail, validatePassword } from '../../core/utils/validators';
         <div class="form-container">
           <div class="header-sec">
             <h3>Candidate portal setup</h3>
-            <p>Upload your resume to get started.</p>
+            <p>Create your account to get started.</p>
           </div>
 
           <form (submit)="onSubmit($event)">
@@ -48,19 +48,15 @@ import { isValidEmail, validatePassword } from '../../core/utils/validators';
               <div class="field-error-msg" [class.show]="emailError()">{{ emailError() }}</div>
             </div>
 
-            <!-- Resume upload dropzone -->
-            <div class="input-field">
-              <label>Resume / CV</label>
-              <div class="upload-zone" (click)="triggerUpload()">
-                <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                <span>{{ uploadedFileName() ? uploadedFileName() : 'Upload PDF, DOCX or TXT' }}</span>
-              </div>
-            </div>
-
             <!-- Password -->
             <div class="input-field">
               <label>Password</label>
-              <input type="password" placeholder="••••••••" required #passwordInput (input)="clearErrors()">
+              <div class="input-wrap">
+                <input [type]="showPassword() ? 'text' : 'password'" placeholder="••••••••" required #passwordInput (input)="clearErrors()">
+                <button type="button" class="toggle-eye" (click)="showPassword.set(!showPassword())" aria-label="Show password">
+                  <svg viewBox="0 0 24 24"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+              </div>
               <div style="color:var(--ink-soft); font-size:11px; margin-top:5px;">At least 8 characters, with an uppercase letter, lowercase letter, number and symbol.</div>
               <div class="field-error-msg" [class.show]="passwordError()">{{ passwordError() }}</div>
             </div>
@@ -221,32 +217,31 @@ import { isValidEmail, validatePassword } from '../../core/utils/validators';
       }
     }
 
-    .upload-zone {
-      border: 2px dashed var(--line);
-      border-radius: var(--radius-large);
-      padding: 24px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      cursor: pointer;
-      @include transition-base;
+    .input-wrap {
+      position: relative;
 
-      &:hover {
-        border-color: var(--indigo);
-        background-color: var(--line-soft);
+      input {
+        width: 100%;
+        padding-right: 38px;
       }
+    }
+
+    .toggle-eye {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
 
       svg {
-        width: 24px;
-        height: 24px;
-        color: var(--ink-soft);
-      }
-
-      span {
-        font-size: 12.5px;
-        color: var(--ink-soft);
+        width: 16px;
+        height: 16px;
+        stroke: var(--ink-soft);
+        fill: none;
+        stroke-width: 1.75;
       }
     }
 
@@ -267,8 +262,8 @@ export class RegisterCandidateComponent {
   @ViewChild('emailInput') emailInputRef!: ElementRef<HTMLInputElement>;
   @ViewChild('passwordInput') passwordInputRef!: ElementRef<HTMLInputElement>;
 
-  uploadedFileName = signal<string>('');
   isSubmitting = signal<boolean>(false);
+  showPassword = signal<boolean>(false);
 
   nameError = signal<string | null>(null);
   emailError = signal<string | null>(null);
@@ -280,12 +275,6 @@ export class RegisterCandidateComponent {
     this.nameError.set(null);
     this.emailError.set(null);
     this.passwordError.set(null);
-  }
-
-  /** Real resume upload/parsing is Module 5 (Resume) + Module 7 (Resume Parser) scope -- this stays a placeholder until then. */
-  triggerUpload() {
-    this.uploadedFileName.set('rahul_mehta_resume.pdf');
-    this.state.showToast('Resume attached. It will be uploaded after you finish setting up your account.');
   }
 
   onSubmit(event: Event) {

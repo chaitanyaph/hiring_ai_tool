@@ -4,11 +4,12 @@ import { Router, RouterLink } from '@angular/router';
 import { AppStateService } from '../../core/services/app-state.service';
 import { ApplicationResponse, ApplicationStage, ApplicationStatus } from '../../core/models/application.model';
 import { applicationStageLabel, applicationStatusBucket, compareToCurrentStage } from '../../core/utils/application.mapper';
+import { SkeletonComponent } from '../../shared/components/skeleton.component';
 
 @Component({
   selector: 'app-candidate-applications',
   standalone: true,
-  imports: [CommonModule, RouterLink],
+  imports: [CommonModule, RouterLink, SkeletonComponent],
   template: `
     <!-- LIST VIEW -->
     <section class="section csection active" id="csec-applications" *ngIf="!selectedApp()">
@@ -31,7 +32,7 @@ import { applicationStageLabel, applicationStatusBucket, compareToCurrentStage }
         </div>
 
         <!-- Applications Table -->
-        <table class="table" *ngIf="filteredApps().length > 0; else emptyState">
+        <table class="table" *ngIf="!state.myApplicationsLoading() && filteredApps().length > 0; else appsLoadingOrEmpty">
           <thead>
             <tr>
               <th>Job title</th>
@@ -57,11 +58,20 @@ import { applicationStageLabel, applicationStatusBucket, compareToCurrentStage }
         </table>
 
         <!-- Empty State -->
-        <ng-template #emptyState>
-          <div class="empty-state">
-            <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18" stroke="currentColor" stroke-width="1.8" fill="none"/></svg>
-            <p>No applications in this filter</p>
+        <ng-template #appsLoadingOrEmpty>
+          <div *ngIf="state.myApplicationsLoading(); else emptyState" class="skeleton-rows">
+            <div class="skeleton-row" *ngFor="let _ of [1,2,3,4]">
+              <app-skeleton width="220px" height="14px" />
+              <app-skeleton width="100px" height="14px" />
+              <app-skeleton width="90px" height="14px" />
+            </div>
           </div>
+          <ng-template #emptyState>
+            <div class="empty-state">
+              <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18" stroke="currentColor" stroke-width="1.8" fill="none"/></svg>
+              <p>No applications in this filter</p>
+            </div>
+          </ng-template>
         </ng-template>
       </div>
     </section>
@@ -102,7 +112,7 @@ import { applicationStageLabel, applicationStatusBucket, compareToCurrentStage }
                   <span class="tl-date">{{ app.appliedAt | date: 'MMM d, y' }}</span>
                 </div>
                 <div class="tl-card">
-                  <span class="tl-note">Applied via <b>Cadence job search</b>.</span>
+                  <span class="tl-note">Applied via <b>HirePilot job search</b>.</span>
                 </div>
               </div>
             </div>
@@ -253,7 +263,20 @@ import { applicationStageLabel, applicationStatusBucket, compareToCurrentStage }
       </div>
     </section>
   `,
-  styles: []
+  styles: [`
+    .skeleton-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      padding: 16px 0;
+    }
+    .skeleton-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+  `]
 })
 export class CandidateApplicationsComponent implements OnInit {
   filter = signal<string>('all');
