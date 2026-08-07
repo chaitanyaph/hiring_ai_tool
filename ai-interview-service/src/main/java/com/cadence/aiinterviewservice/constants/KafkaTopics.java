@@ -10,6 +10,8 @@ public final class KafkaTopics {
     public static final String INTERVIEW_COMPLETED = "ai-interview.interview.completed";
     public static final String INTERVIEW_EVALUATED = "ai-interview.interview.evaluated";
     public static final String CANDIDATE_RECOMMENDED = "ai-interview.candidate.recommended";
+    public static final String INTERVIEW_REMINDER = "ai-interview.interview.reminder";
+    public static final String INTERVIEW_EXPIRED = "ai-interview.interview.expired";
 
     // ---- Consumed -- owned/published by Resume Parser Service ----
     // The trigger for AI Shortlisting: a resume has been matched against a job.

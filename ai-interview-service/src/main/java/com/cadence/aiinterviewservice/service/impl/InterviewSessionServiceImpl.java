@@ -17,7 +17,9 @@ import com.cadence.aiinterviewservice.feign.dto.JobDetailDto;
 import com.cadence.aiinterviewservice.feign.dto.JobSkillDto;
 import com.cadence.aiinterviewservice.feign.dto.MatchedSkillDto;
 import com.cadence.aiinterviewservice.feign.dto.ResumeMatchDto;
+import com.cadence.aiinterviewservice.kafka.event.AiInterviewExpiredEvent;
 import com.cadence.aiinterviewservice.kafka.event.AiInterviewInvitedEvent;
+import com.cadence.aiinterviewservice.kafka.event.AiInterviewReminderEvent;
 import com.cadence.aiinterviewservice.kafka.event.CandidateRecommendedEvent;
 import com.cadence.aiinterviewservice.kafka.event.InterviewCompletedEvent;
 import com.cadence.aiinterviewservice.kafka.event.InterviewStartedEvent;
@@ -96,6 +98,9 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
     @Value("${ai-interview.session.ttl-hours:72}")
     private int ttlHours;
 
+    @Value("${ai-interview.session.reminder-before-expiry-hours:24}")
+    private int reminderBeforeExpiryHours;
+
     @Value("${cadence.frontend-base-url}")
     private String frontendBaseUrl;
 
@@ -112,6 +117,7 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
                         .build());
         session.setInvitedAt(LocalDateTime.now());
         session.setExpiresAt(LocalDateTime.now().plusHours(ttlHours));
+        session.setRemindedAt(null);
         if (session.getStatus() == InterviewSessionStatus.EXPIRED) {
             session.setStatus(InterviewSessionStatus.NOT_STARTED);
         }
@@ -127,9 +133,13 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
         if (session.getStatus() != InterviewSessionStatus.NOT_STARTED) {
             throw new InterviewConflictException(ErrorCode.INTERVIEW_NOT_IN_PROGRESS, "Only a not-started interview can be reminded");
         }
-        // Notification Service does not exist yet in this platform -- this
-        // is a validated no-op today, logged for audit/traceability.
-        writeLog(session, LogLevel.INFO, "Reminder requested (Notification Service not yet available)");
+        session.setRemindedAt(LocalDateTime.now());
+        interviewSessionRepository.save(session);
+        writeLog(session, LogLevel.INFO, "Reminder sent to candidate (recruiter-triggered)");
+        eventProducer.publishInterviewReminder(AiInterviewReminderEvent.builder()
+                .applicationId(session.getApplicationId()).jobId(session.getJobId()).candidateId(session.getCandidateId())
+                .interviewLink(frontendBaseUrl + "/candidate/ai-interview/" + session.getApplicationId())
+                .expiresAt(session.getExpiresAt()).occurredAt(LocalDateTime.now()).build());
     }
 
     @Override
@@ -142,6 +152,7 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
         session.setStatus(InterviewSessionStatus.NOT_STARTED);
         session.setInvitedAt(LocalDateTime.now());
         session.setExpiresAt(LocalDateTime.now().plusHours(ttlHours));
+        session.setRemindedAt(null);
         session = interviewSessionRepository.save(session);
         writeLog(session, LogLevel.INFO, "Interview invitation resent");
         publishInvited(session);
@@ -310,9 +321,39 @@ public class InterviewSessionServiceImpl implements InterviewSessionService {
             session.setStatus(InterviewSessionStatus.EXPIRED);
             interviewSessionRepository.save(session);
             writeLog(session, LogLevel.INFO, "Interview invitation expired");
+            eventProducer.publishInterviewExpired(AiInterviewExpiredEvent.builder()
+                    .applicationId(session.getApplicationId()).jobId(session.getJobId()).candidateId(session.getCandidateId())
+                    .occurredAt(LocalDateTime.now()).build());
         }
         if (!overdue.isEmpty()) {
             log.info("Expiry sweep marked {} interview session(s) EXPIRED", overdue.size());
+        }
+    }
+
+    /**
+     * Sends a one-time reminder for NOT_STARTED sessions approaching their
+     * deadline (default: within 24h) that haven't been reminded yet --
+     * remindedAt is stamped immediately so a session is never reminded twice
+     * even if this runs more often than the reminder window.
+     */
+    @Scheduled(fixedDelayString = "${ai-interview.session.reminder-sweep-interval-ms:3600000}")
+    @Transactional
+    public void sendReminders() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime reminderCutoff = now.plusHours(reminderBeforeExpiryHours);
+        List<InterviewSession> due = interviewSessionRepository
+                .findAllDueForReminder(InterviewSessionStatus.NOT_STARTED, now, reminderCutoff);
+        for (InterviewSession session : due) {
+            session.setRemindedAt(now);
+            interviewSessionRepository.save(session);
+            writeLog(session, LogLevel.INFO, "Interview reminder sent");
+            eventProducer.publishInterviewReminder(AiInterviewReminderEvent.builder()
+                    .applicationId(session.getApplicationId()).jobId(session.getJobId()).candidateId(session.getCandidateId())
+                    .interviewLink(frontendBaseUrl + "/candidate/ai-interview/" + session.getApplicationId())
+                    .expiresAt(session.getExpiresAt()).occurredAt(now).build());
+        }
+        if (!due.isEmpty()) {
+            log.info("Reminder sweep sent {} interview reminder(s)", due.size());
         }
     }
 

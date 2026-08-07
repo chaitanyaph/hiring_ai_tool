@@ -238,16 +238,10 @@ public class ApplicationServiceImpl implements ApplicationService, ApplicationLi
     public ApplicationResponse changeStatus(CurrentUser recruiter, UUID applicationId, StatusChangeRequest request) {
         requireWriteAccess(recruiter);
         Application application = findForCompanyOrThrow(applicationId, recruiter.getCompanyId());
-        ApplicationStatus previous = application.getCurrentStatus();
 
         transitionStatus(application, request.getToStatus(), recruiter.getUserId(), request.getReason());
         application.setUpdatedBy(recruiter.getUserId());
         application = applicationRepository.save(application);
-
-        eventProducer.publishApplicationStatusChanged(ApplicationStatusChangedEvent.builder()
-                .applicationId(application.getId()).companyId(application.getCompanyId()).jobId(application.getJobId())
-                .candidateId(application.getCandidateId())
-                .fromStatus(previous).toStatus(request.getToStatus()).occurredAt(LocalDateTime.now()).build());
         evictApplicationCache(application.getId());
 
         return assembleResponse(application, true);
@@ -511,7 +505,8 @@ public class ApplicationServiceImpl implements ApplicationService, ApplicationLi
         application.setCodingScore(score);
         application.setOverallScore(ScoreCalculator.recomputeOverall(application));
         transitionStatus(application, ApplicationStatus.CODING_ASSESSMENT_COMPLETED, null, "Coding assessment completed, score: " + score);
-        boolean didPass = passed == null || passed;
+        // Fail closed: a missing/malformed `passed` field must never silently auto-advance a candidate.
+        boolean didPass = Boolean.TRUE.equals(passed);
         if (didPass) {
             transitionStatus(application, ApplicationStatus.TECHNICAL_INTERVIEW, null, "Technical interview scheduled automatically");
         } else {
@@ -582,6 +577,15 @@ public class ApplicationServiceImpl implements ApplicationService, ApplicationLi
                     .applicationId(application.getId()).fromStage(previousStage).toStage(targetStage)
                     .changedBy(changedBy).reason(reason).build());
         }
+
+        // Published from the one shared choke point every status change (manual recruiter
+        // action or automatic Kafka-event-driven lifecycle transition) already flows through,
+        // so notification-service can react to every transition -- not just the ones made via
+        // the recruiter-facing changeStatus() endpoint, which used to publish this alone.
+        eventProducer.publishApplicationStatusChanged(ApplicationStatusChangedEvent.builder()
+                .applicationId(application.getId()).companyId(application.getCompanyId()).jobId(application.getJobId())
+                .candidateId(application.getCandidateId())
+                .fromStatus(previous).toStatus(target).occurredAt(LocalDateTime.now()).build());
     }
 
     private void recordStatusHistory(UUID applicationId, ApplicationStatus from, ApplicationStatus to, UUID changedBy, String reason) {

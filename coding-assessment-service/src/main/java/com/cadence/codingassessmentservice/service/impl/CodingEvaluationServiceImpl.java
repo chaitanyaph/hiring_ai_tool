@@ -93,7 +93,8 @@ public class CodingEvaluationServiceImpl implements CodingEvaluationService {
                     ScoreUpdateRequest.builder().score(scorePercent).source("coding-assessment-service").build());
 
             eventProducer.publishCodingAssessmentCompleted(CodingAssessmentCompletedEvent.builder()
-                    .applicationId(ca.getApplicationId()).score(scorePercent).passed(passed).build());
+                    .applicationId(ca.getApplicationId()).jobId(ca.getJobId()).candidateId(ca.getCandidateId())
+                    .score(scorePercent).passed(passed).build());
 
             log.info("Evaluation completed for candidate assessment {} -- score {}% (passing threshold {}%, passed={})",
                     candidateAssessmentId, scorePercent, assessment.getPassingScorePercent(), passed);

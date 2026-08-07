@@ -233,7 +233,8 @@ public class AssessmentServiceImpl implements AssessmentService {
             throw new AssessmentConflictException(ErrorCode.ASSESSMENT_NOT_IN_PROGRESS, "Only a completed submission can be moved to the next stage");
         }
         eventProducer.publishCodingAssessmentCompleted(com.cadence.codingassessmentservice.kafka.event.CodingAssessmentCompletedEvent.builder()
-                .applicationId(applicationId).score(ca.getTotalScore()).passed(ca.getPassed()).build());
+                .applicationId(applicationId).jobId(ca.getJobId()).candidateId(ca.getCandidateId())
+                .score(ca.getTotalScore()).passed(ca.getPassed()).build());
     }
 
     private void linkQuestions(UUID assessmentId, List<UUID> questionIds) {

@@ -8,6 +8,7 @@ import com.cadence.codingassessmentservice.exception.ErrorCode;
 import com.cadence.codingassessmentservice.exception.ResourceNotFoundException;
 import com.cadence.codingassessmentservice.kafka.event.AssessmentStartedEvent;
 import com.cadence.codingassessmentservice.kafka.event.CodingAssessmentInvitedEvent;
+import com.cadence.codingassessmentservice.kafka.event.CodingAssessmentReminderEvent;
 import com.cadence.codingassessmentservice.kafka.producer.CodingAssessmentEventProducer;
 import com.cadence.codingassessmentservice.repository.*;
 import com.cadence.codingassessmentservice.service.CandidateAssessmentService;
@@ -15,6 +16,7 @@ import com.cadence.codingassessmentservice.service.CodingEvaluationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -51,6 +53,9 @@ public class CandidateAssessmentServiceImpl implements CandidateAssessmentServic
     @Value("${coding-assessment.session.default-invitation-ttl-hours:168}")
     private int ttlHours;
 
+    @Value("${coding-assessment.session.reminder-before-expiry-hours:24}")
+    private int reminderBeforeExpiryHours;
+
     @Value("${cadence.frontend-base-url}")
     private String frontendBaseUrl;
 
@@ -64,6 +69,7 @@ public class CandidateAssessmentServiceImpl implements CandidateAssessmentServic
                         .build());
         ca.setInvitedAt(LocalDateTime.now());
         ca.setExpiresAt(LocalDateTime.now().plusHours(ttlHours));
+        ca.setRemindedAt(null);
         if (ca.getStatus() == CandidateAssessmentStatus.EXPIRED) {
             ca.setStatus(CandidateAssessmentStatus.NOT_STARTED);
         }
@@ -88,10 +94,12 @@ public class CandidateAssessmentServiceImpl implements CandidateAssessmentServic
         if (ca.getStatus() != CandidateAssessmentStatus.NOT_STARTED) {
             throw new AssessmentConflictException(ErrorCode.ASSESSMENT_NOT_IN_PROGRESS, "Only a not-started assessment can be reminded");
         }
-        // Notification Service does not exist yet in this platform -- this
-        // is a validated no-op today, logged for audit/traceability.
         ca.setRemindedAt(LocalDateTime.now());
         candidateAssessmentRepository.save(ca);
+        eventProducer.publishCodingAssessmentReminder(CodingAssessmentReminderEvent.builder()
+                .applicationId(ca.getApplicationId()).jobId(ca.getJobId()).candidateId(ca.getCandidateId())
+                .assessmentLink(frontendBaseUrl + "/candidate/coding-assessments/" + ca.getId())
+                .expiresAt(ca.getExpiresAt()).occurredAt(LocalDateTime.now()).build());
     }
 
     @Override
@@ -104,7 +112,48 @@ public class CandidateAssessmentServiceImpl implements CandidateAssessmentServic
         ca.setStatus(CandidateAssessmentStatus.NOT_STARTED);
         ca.setInvitedAt(LocalDateTime.now());
         ca.setExpiresAt(LocalDateTime.now().plusHours(ttlHours));
+        ca.setRemindedAt(null);
         candidateAssessmentRepository.save(ca);
+    }
+
+    /**
+     * Sweeps NOT_STARTED attempts past their expiresAt deadline to EXPIRED --
+     * mirrors ai-interview-service's identical sweep, using the already-defined
+     * but previously unused CandidateAssessmentRepository.findAllByStatusAndExpiresAtBefore().
+     */
+    @Scheduled(fixedDelayString = "${coding-assessment.session.expiry-sweep-interval-ms:900000}")
+    @Transactional
+    public void sweepExpiredAssessments() {
+        List<CandidateAssessment> overdue = candidateAssessmentRepository
+                .findAllByStatusAndExpiresAtBefore(CandidateAssessmentStatus.NOT_STARTED, LocalDateTime.now());
+        for (CandidateAssessment ca : overdue) {
+            ca.setStatus(CandidateAssessmentStatus.EXPIRED);
+        }
+        candidateAssessmentRepository.saveAll(overdue);
+        if (!overdue.isEmpty()) {
+            log.info("Expiry sweep marked {} coding assessment attempt(s) EXPIRED", overdue.size());
+        }
+    }
+
+    /** One-time reminder for NOT_STARTED attempts approaching their deadline (default: within 24h). */
+    @Scheduled(fixedDelayString = "${coding-assessment.session.reminder-sweep-interval-ms:3600000}")
+    @Transactional
+    public void sendReminders() {
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime reminderCutoff = now.plusHours(reminderBeforeExpiryHours);
+        List<CandidateAssessment> due = candidateAssessmentRepository
+                .findAllDueForReminder(CandidateAssessmentStatus.NOT_STARTED, now, reminderCutoff);
+        for (CandidateAssessment ca : due) {
+            ca.setRemindedAt(now);
+            candidateAssessmentRepository.save(ca);
+            eventProducer.publishCodingAssessmentReminder(CodingAssessmentReminderEvent.builder()
+                    .applicationId(ca.getApplicationId()).jobId(ca.getJobId()).candidateId(ca.getCandidateId())
+                    .assessmentLink(frontendBaseUrl + "/candidate/coding-assessments/" + ca.getId())
+                    .expiresAt(ca.getExpiresAt()).occurredAt(now).build());
+        }
+        if (!due.isEmpty()) {
+            log.info("Reminder sweep sent {} coding assessment reminder(s)", due.size());
+        }
     }
 
     @Override

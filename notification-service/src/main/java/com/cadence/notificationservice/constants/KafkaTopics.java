@@ -23,8 +23,12 @@ public final class KafkaTopics {
     public static final String CANDIDATE_SHORTLISTED = "ai-interview.candidate.shortlisted";
     public static final String AI_INTERVIEW_INVITED = "ai-interview.interview.invited";
     public static final String AI_INTERVIEW_COMPLETED = "ai-interview.interview.completed";
+    public static final String AI_INTERVIEW_EVALUATED = "ai-interview.interview.evaluated";
+    public static final String AI_INTERVIEW_EXPIRED = "ai-interview.interview.expired";
+    public static final String AI_INTERVIEW_REMINDER = "ai-interview.interview.reminder";
     public static final String CODING_ASSESSMENT_INVITED = "assessment.coding.invited";
     public static final String CODING_ASSESSMENT_COMPLETED = "assessment.coding.completed";
+    public static final String CODING_ASSESSMENT_REMINDER = "assessment.coding.reminder";
     public static final String INTERVIEW_SCHEDULED = "interview-management.interview.scheduled";
     public static final String INTERVIEW_RESCHEDULED = "interview-management.interview.rescheduled";
     public static final String INTERVIEW_CANCELLED = "interview-management.interview.cancelled";
@@ -33,4 +37,6 @@ public final class KafkaTopics {
     public static final String CANDIDATE_REJECTED = "interview-management.candidate.rejected";
     public static final String OFFER_ACCEPTED = "application.offer.accepted";
     public static final String OFFER_REJECTED = "application.offer.rejected";
+    public static final String OFFER_SENT = "offer-management.offer.sent";
+    public static final String APPLICATION_STATUS_CHANGED = "application.status.changed";
 }

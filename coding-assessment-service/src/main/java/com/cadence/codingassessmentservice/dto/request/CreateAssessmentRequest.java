@@ -38,7 +38,8 @@ public class CreateAssessmentRequest {
     @NotNull @Min(1)
     private Integer questionCount;
 
-    @NotNull @Min(0) @Max(100)
+    /** Platform floor: a candidate must clear at least 75% to be considered qualified. */
+    @NotNull @Min(75) @Max(100)
     private Integer passingScorePercent;
 
     @NotNull @Min(1)

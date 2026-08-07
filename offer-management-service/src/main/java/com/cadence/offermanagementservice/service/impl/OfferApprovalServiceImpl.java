@@ -126,7 +126,8 @@ public class OfferApprovalServiceImpl implements OfferApprovalService {
         logActivity(offer.getId(), ActivityEventType.SENT, offer.getCreatedByRecruiterId(), "Offer sent to candidate");
 
         eventProducer.publishOfferSent(OfferSentEvent.builder()
-                .offerId(offer.getId()).applicationId(offer.getApplicationId()).candidateId(offer.getCandidateId())
+                .offerId(offer.getId()).applicationId(offer.getApplicationId())
+                .jobId(offer.getJobId()).companyId(offer.getCompanyId()).candidateId(offer.getCandidateId())
                 .candidateEmail(offer.getCandidateEmail()).build());
         // The real integration value: bridges onto application-service's own
         // already-live consumer, which only transitions status when current

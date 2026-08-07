@@ -3,6 +3,7 @@ package com.cadence.notificationservice.kafka.consumer;
 import com.cadence.notificationservice.constants.KafkaTopics;
 import com.cadence.notificationservice.kafka.event.CodingAssessmentCompletedEvent;
 import com.cadence.notificationservice.kafka.event.CodingAssessmentInvitedEvent;
+import com.cadence.notificationservice.kafka.event.CodingAssessmentReminderEvent;
 import com.cadence.notificationservice.service.NotificationOrchestrationService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +32,15 @@ public class CodingAssessmentEventConsumer {
             orchestrationService.handleCodingAssessmentCompleted(event);
         } catch (Exception e) {
             log.error("Failed to process CodingAssessmentCompleted for application {}: {}", event.getApplicationId(), e.getMessage(), e);
+        }
+    }
+
+    @KafkaListener(topics = KafkaTopics.CODING_ASSESSMENT_REMINDER, groupId = "notification-service-group")
+    public void onCodingAssessmentReminder(CodingAssessmentReminderEvent event) {
+        try {
+            orchestrationService.handleCodingAssessmentReminder(event);
+        } catch (Exception e) {
+            log.error("Failed to process CodingAssessmentReminder for application {}: {}", event.getApplicationId(), e.getMessage(), e);
         }
     }
 }

@@ -33,4 +33,15 @@ public interface InterviewSessionRepository extends JpaRepository<InterviewSessi
     long countByJobIdAndStatusAndCompletedAtAfter(UUID jobId, InterviewSessionStatus status, LocalDateTime after);
 
     List<InterviewSession> findAllByStatusAndExpiresAtBefore(InterviewSessionStatus status, LocalDateTime now);
+
+    @Query("""
+            SELECT s FROM InterviewSession s
+            WHERE s.status = :status
+            AND s.remindedAt IS NULL
+            AND s.expiresAt IS NOT NULL
+            AND s.expiresAt BETWEEN :now AND :reminderCutoff
+            """)
+    List<InterviewSession> findAllDueForReminder(@Param("status") InterviewSessionStatus status,
+                                                  @Param("now") LocalDateTime now,
+                                                  @Param("reminderCutoff") LocalDateTime reminderCutoff);
 }

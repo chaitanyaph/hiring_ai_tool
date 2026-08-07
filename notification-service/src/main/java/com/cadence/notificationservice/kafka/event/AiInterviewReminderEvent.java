@@ -2,14 +2,15 @@ package com.cadence.notificationservice.kafka.event;
 
 import lombok.*;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
-/** jobId/candidateId/passed added alongside coding-assessment-service's own producer-side event. */
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-public class CodingAssessmentCompletedEvent {
+public class AiInterviewReminderEvent {
     private UUID applicationId;
     private UUID jobId;
     private UUID candidateId;
-    private Integer score;
-    private Boolean passed;
+    private String interviewLink;
+    private LocalDateTime expiresAt;
+    private LocalDateTime occurredAt;
 }

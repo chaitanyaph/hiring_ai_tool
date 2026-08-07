@@ -9,11 +9,15 @@ import java.util.UUID;
  * must match that side's CodingAssessmentCompletedEvent exactly (Jackson
  * binds by property name). `passed` (score vs. the assessment's
  * passingScorePercent) drives whether the application advances to
- * TECHNICAL_INTERVIEW or is auto-rejected.
+ * TECHNICAL_INTERVIEW or is auto-rejected. jobId/candidateId are also
+ * consumed by notification-service to send the Passed/Rejected email
+ * without needing a second lookup call.
  */
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
 public class CodingAssessmentCompletedEvent {
     private UUID applicationId;
+    private UUID jobId;
+    private UUID candidateId;
     private Integer score;
     private Boolean passed;
 }

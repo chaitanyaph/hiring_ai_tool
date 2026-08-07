@@ -18,4 +18,5 @@ public class ApplicationSummaryDto {
     private String candidateEmailSnapshot;
     private String jobTitleSnapshot;
     private String currentStatus;
+    private UUID assignedRecruiterId;
 }

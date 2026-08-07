@@ -156,7 +156,10 @@ class NotificationOrchestrationServiceImplTest {
     }
 
     @Test
-    void handleCandidateShortlisted_shouldPickRejectedTemplate_whenDecisionIsReject() {
+    void handleCandidateShortlisted_shouldPickRejectedTemplate_whenDecisionIsRejected() {
+        // Real value ai-interview-service actually publishes is "REJECTED", not "REJECT" --
+        // this is the exact bug that previously made every non-shortlisted decision
+        // silently fall through to the "shortlisted" email.
         UUID applicationId = UUID.randomUUID();
         UUID candidateId = UUID.randomUUID();
         when(candidateServiceClient.getCandidateSummary(candidateId))
@@ -165,9 +168,160 @@ class NotificationOrchestrationServiceImplTest {
                 .thenReturn(Optional.of(template(TemplateCategory.RESUME_REJECTED, "Update", "<p>Hi {{candidate_name}}</p>")));
 
         orchestrationService.handleCandidateShortlisted(CandidateShortlistedEvent.builder()
-                .applicationId(applicationId).jobId(UUID.randomUUID()).candidateId(candidateId).decision("REJECT").build());
+                .applicationId(applicationId).jobId(UUID.randomUUID()).candidateId(candidateId).decision("REJECTED").build());
 
         verify(templateRepository).findByCategory(TemplateCategory.RESUME_REJECTED);
         verify(emailQueueRepository).save(any(EmailQueue.class));
+    }
+
+    @Test
+    void handleCandidateShortlisted_shouldPickShortlistedTemplate_whenDecisionIsShortlisted() {
+        UUID applicationId = UUID.randomUUID();
+        UUID candidateId = UUID.randomUUID();
+        when(candidateServiceClient.getCandidateSummary(candidateId))
+                .thenReturn(new FeignApiResponse<>(true, "OK", new CandidateDto(candidateId, "Karthik Rao", "karthik@mail.com")));
+        when(templateRepository.findByCategory(TemplateCategory.RESUME_SHORTLISTED))
+                .thenReturn(Optional.of(template(TemplateCategory.RESUME_SHORTLISTED, "Great news", "<p>Hi {{candidate_name}}</p>")));
+
+        orchestrationService.handleCandidateShortlisted(CandidateShortlistedEvent.builder()
+                .applicationId(applicationId).jobId(UUID.randomUUID()).candidateId(candidateId).decision("SHORTLISTED").build());
+
+        verify(templateRepository).findByCategory(TemplateCategory.RESUME_SHORTLISTED);
+        verify(emailQueueRepository).save(any(EmailQueue.class));
+    }
+
+    @Test
+    void handleAiInterviewEvaluated_shouldQueuePassedEmail_whenRecommendationIsProceed() {
+        UUID applicationId = UUID.randomUUID();
+        UUID candidateId = UUID.randomUUID();
+        when(candidateServiceClient.getCandidateSummary(candidateId))
+                .thenReturn(new FeignApiResponse<>(true, "OK", new CandidateDto(candidateId, "Karthik Rao", "karthik@mail.com")));
+        when(templateRepository.findByCategory(TemplateCategory.AI_INTERVIEW_PASSED))
+                .thenReturn(Optional.of(template(TemplateCategory.AI_INTERVIEW_PASSED, "Passed", "<p>Hi {{candidate_name}}</p>")));
+
+        orchestrationService.handleAiInterviewEvaluated(InterviewEvaluatedEvent.builder()
+                .applicationId(applicationId).jobId(UUID.randomUUID()).candidateId(candidateId)
+                .overallScore(88).hiringRecommendation("PROCEED").build());
+
+        verify(templateRepository).findByCategory(TemplateCategory.AI_INTERVIEW_PASSED);
+        verify(emailQueueRepository).save(any(EmailQueue.class));
+    }
+
+    @Test
+    void handleAiInterviewEvaluated_shouldQueueRejectedEmail_whenRecommendationIsReject() {
+        UUID applicationId = UUID.randomUUID();
+        UUID candidateId = UUID.randomUUID();
+        when(candidateServiceClient.getCandidateSummary(candidateId))
+                .thenReturn(new FeignApiResponse<>(true, "OK", new CandidateDto(candidateId, "Karthik Rao", "karthik@mail.com")));
+        when(templateRepository.findByCategory(TemplateCategory.AI_INTERVIEW_REJECTED))
+                .thenReturn(Optional.of(template(TemplateCategory.AI_INTERVIEW_REJECTED, "Update", "<p>Hi {{candidate_name}}</p>")));
+
+        orchestrationService.handleAiInterviewEvaluated(InterviewEvaluatedEvent.builder()
+                .applicationId(applicationId).jobId(UUID.randomUUID()).candidateId(candidateId)
+                .overallScore(30).hiringRecommendation("REJECT").build());
+
+        verify(templateRepository).findByCategory(TemplateCategory.AI_INTERVIEW_REJECTED);
+        verify(emailQueueRepository).save(any(EmailQueue.class));
+    }
+
+    @Test
+    void handleAiInterviewEvaluated_shouldSendNoEmail_whenRecommendationIsHold() {
+        orchestrationService.handleAiInterviewEvaluated(InterviewEvaluatedEvent.builder()
+                .applicationId(UUID.randomUUID()).jobId(UUID.randomUUID()).candidateId(UUID.randomUUID())
+                .overallScore(55).hiringRecommendation("HOLD").build());
+
+        verifyNoInteractions(emailQueueRepository);
+    }
+
+    @Test
+    void handleCodingAssessmentCompleted_shouldQueuePassedEmail_whenPassedTrue() {
+        UUID applicationId = UUID.randomUUID();
+        UUID candidateId = UUID.randomUUID();
+        when(candidateServiceClient.getCandidateSummary(candidateId))
+                .thenReturn(new FeignApiResponse<>(true, "OK", new CandidateDto(candidateId, "Karthik Rao", "karthik@mail.com")));
+        when(templateRepository.findByCategory(TemplateCategory.CODING_ASSESSMENT_PASSED))
+                .thenReturn(Optional.of(template(TemplateCategory.CODING_ASSESSMENT_PASSED, "Passed", "<p>Hi {{candidate_name}}</p>")));
+
+        orchestrationService.handleCodingAssessmentCompleted(CodingAssessmentCompletedEvent.builder()
+                .applicationId(applicationId).jobId(UUID.randomUUID()).candidateId(candidateId).score(90).passed(true).build());
+
+        verify(templateRepository).findByCategory(TemplateCategory.CODING_ASSESSMENT_PASSED);
+        verify(emailQueueRepository).save(any(EmailQueue.class));
+    }
+
+    @Test
+    void handleCodingAssessmentCompleted_shouldQueueRejectedEmail_whenPassedFalse() {
+        UUID applicationId = UUID.randomUUID();
+        UUID candidateId = UUID.randomUUID();
+        when(candidateServiceClient.getCandidateSummary(candidateId))
+                .thenReturn(new FeignApiResponse<>(true, "OK", new CandidateDto(candidateId, "Karthik Rao", "karthik@mail.com")));
+        when(templateRepository.findByCategory(TemplateCategory.CODING_ASSESSMENT_REJECTED))
+                .thenReturn(Optional.of(template(TemplateCategory.CODING_ASSESSMENT_REJECTED, "Update", "<p>Hi {{candidate_name}}</p>")));
+
+        orchestrationService.handleCodingAssessmentCompleted(CodingAssessmentCompletedEvent.builder()
+                .applicationId(applicationId).jobId(UUID.randomUUID()).candidateId(candidateId).score(40).passed(false).build());
+
+        verify(templateRepository).findByCategory(TemplateCategory.CODING_ASSESSMENT_REJECTED);
+        verify(emailQueueRepository).save(any(EmailQueue.class));
+    }
+
+    @Test
+    void handleApplicationStatusChanged_shouldQueueFinalRejection_whenRejectedFromBackgroundVerification() {
+        UUID applicationId = UUID.randomUUID();
+        UUID candidateId = UUID.randomUUID();
+        when(candidateServiceClient.getCandidateSummary(candidateId))
+                .thenReturn(new FeignApiResponse<>(true, "OK", new CandidateDto(candidateId, "Karthik Rao", "karthik@mail.com")));
+        when(templateRepository.findByCategory(TemplateCategory.FINAL_REJECTION))
+                .thenReturn(Optional.of(template(TemplateCategory.FINAL_REJECTION, "Update", "<p>Hi {{candidate_name}}</p>")));
+
+        orchestrationService.handleApplicationStatusChanged(ApplicationStatusChangedEvent.builder()
+                .applicationId(applicationId).jobId(UUID.randomUUID()).candidateId(candidateId)
+                .fromStatus("BACKGROUND_VERIFICATION").toStatus("REJECTED").build());
+
+        verify(templateRepository).findByCategory(TemplateCategory.FINAL_REJECTION);
+        verify(emailQueueRepository).save(any(EmailQueue.class));
+    }
+
+    @Test
+    void handleApplicationStatusChanged_shouldSkipFinalRejection_whenAlreadyHandledByCodingAssessmentEmail() {
+        orchestrationService.handleApplicationStatusChanged(ApplicationStatusChangedEvent.builder()
+                .applicationId(UUID.randomUUID()).jobId(UUID.randomUUID()).candidateId(UUID.randomUUID())
+                .fromStatus("CODING_ASSESSMENT_COMPLETED").toStatus("REJECTED").build());
+
+        verifyNoInteractions(emailQueueRepository);
+    }
+
+    @Test
+    void handleApplicationStatusChanged_shouldNotifyRecruiter_whenReachingTechnicalInterview() {
+        UUID applicationId = UUID.randomUUID();
+        UUID jobId = UUID.randomUUID();
+        UUID recruiterId = UUID.randomUUID();
+        ApplicationSummaryDto summary = new ApplicationSummaryDto();
+        summary.setId(applicationId);
+        summary.setCandidateNameSnapshot("Sneha Iyer");
+        summary.setJobTitleSnapshot("Backend Engineer");
+        summary.setAssignedRecruiterId(recruiterId);
+        when(applicationServiceClient.getApplicationsByJob(jobId)).thenReturn(new FeignApiResponse<>(true, "OK", List.of(summary)));
+
+        orchestrationService.handleApplicationStatusChanged(ApplicationStatusChangedEvent.builder()
+                .applicationId(applicationId).jobId(jobId).candidateId(UUID.randomUUID())
+                .fromStatus("CODING_ASSESSMENT_COMPLETED").toStatus("TECHNICAL_INTERVIEW").build());
+
+        verify(notificationRepository).save(argThat(n -> n.getRecipientId().equals(recruiterId)));
+        verifyNoInteractions(emailQueueRepository);
+    }
+
+    @Test
+    void handleOfferSent_shouldQueueOfferLetterEmail() {
+        UUID applicationId = UUID.randomUUID();
+        UUID candidateId = UUID.randomUUID();
+        when(templateRepository.findByCategory(TemplateCategory.OFFER_LETTER))
+                .thenReturn(Optional.of(template(TemplateCategory.OFFER_LETTER, "Offer", "<p>Hi {{candidate_name}}</p>")));
+
+        orchestrationService.handleOfferSent(OfferSentEvent.builder()
+                .offerId(UUID.randomUUID()).applicationId(applicationId).jobId(UUID.randomUUID())
+                .companyId(UUID.randomUUID()).candidateId(candidateId).candidateEmail("karthik@mail.com").build());
+
+        verify(emailQueueRepository).save(argThat(e -> e.getRecipientEmail().equals("karthik@mail.com")));
     }
 }

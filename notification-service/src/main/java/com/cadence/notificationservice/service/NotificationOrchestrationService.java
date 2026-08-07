@@ -48,4 +48,16 @@ public interface NotificationOrchestrationService {
     void handleOfferAccepted(OfferAcceptedEvent event);
 
     void handleOfferRejected(OfferRejectedEvent event);
+
+    void handleOfferSent(OfferSentEvent event);
+
+    void handleAiInterviewEvaluated(InterviewEvaluatedEvent event);
+
+    void handleAiInterviewExpired(AiInterviewExpiredEvent event);
+
+    void handleAiInterviewReminder(AiInterviewReminderEvent event);
+
+    void handleCodingAssessmentReminder(CodingAssessmentReminderEvent event);
+
+    void handleApplicationStatusChanged(ApplicationStatusChangedEvent event);
 }

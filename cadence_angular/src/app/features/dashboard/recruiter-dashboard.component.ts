@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { AppStateService } from '../../core/services/app-state.service';
 import { Candidate } from '../../core/models/models';
+import { ApplicationResponse, ApplicationStage, ApplicationStatus } from '../../core/models/application.model';
+import { compareToCurrentStage } from '../../core/utils/application.mapper';
 
 @Component({
   selector: 'app-recruiter-dashboard',
@@ -22,32 +24,20 @@ import { Candidate } from '../../core/models/models';
       <div class="kpi-row">
         <div class="kpi-card">
           <div class="kpi-label">Total applications</div>
-          <div class="kpi-value">1,204</div>
-          <div class="kpi-trend up">
-            <svg viewBox="0 0 24 24" width="12" height="12" style="stroke:currentColor; fill:none; stroke-width:2.4; margin-right:4px;"><path d="M4 17l6-6 4 4 6-8"/></svg>
-            +12% <span class="muted">vs last month</span>
-          </div>
+          <div class="kpi-value">{{ kpis().totalApplications }}</div>
         </div>
         <div class="kpi-card">
           <div class="kpi-label">Open positions</div>
-          <div class="kpi-value">18</div>
-          <div class="kpi-trend"><span class="muted">across 4 departments</span></div>
+          <div class="kpi-value">{{ kpis().openPositions }}</div>
         </div>
         <div class="kpi-card">
           <div class="kpi-label">Candidates in pipeline</div>
-          <div class="kpi-value">342</div>
-          <div class="kpi-trend up">
-            <svg viewBox="0 0 24 24" width="12" height="12" style="stroke:currentColor; fill:none; stroke-width:2.4; margin-right:4px;"><path d="M4 17l6-6 4 4 6-8"/></svg>
-            +8% <span class="muted">this week</span>
-          </div>
+          <div class="kpi-value">{{ kpis().inPipeline }}</div>
         </div>
         <div class="kpi-card">
           <div class="kpi-label">Avg. time to hire</div>
-          <div class="kpi-value">19d</div>
-          <div class="kpi-trend up">
-            <svg viewBox="0 0 24 24" width="12" height="12" style="stroke:currentColor; fill:none; stroke-width:2.4; margin-right:4px;"><path d="M4 7l6 6 4-4 6 8"/></svg>
-            -3d <span class="muted">vs last quarter</span>
-          </div>
+          <div class="kpi-value">{{ kpis().avgTimeToHireDays !== null ? kpis().avgTimeToHireDays + 'd' : 'N/A' }}</div>
+          <div class="kpi-trend" *ngIf="kpis().avgTimeToHireDays === null"><span class="muted">No hires yet</span></div>
         </div>
       </div>
 
@@ -56,52 +46,79 @@ import { Candidate } from '../../core/models/models';
         <div class="card-head">
           <div>
             <h2>Interview funnel</h2>
-            <div class="card-sub">Backend Engineer &middot; Senior DevOps &middot; Frontend Engineer</div>
+            <div class="card-sub">Live pipeline across all open roles</div>
           </div>
-          <a class="card-link" (click)="state.showToast('Opening funnel report…')">View report</a>
         </div>
         <div class="funnel">
           <div class="funnel-row">
             <div class="stage-name">Applicants</div>
             <div class="funnel-bar-track">
-              <div class="funnel-bar-fill" style="width:100%;">1,204</div>
+              <div class="funnel-bar-fill" [style.width.%]="funnel().applicants.pct">{{ funnel().applicants.count }}</div>
             </div>
             <div class="conv">&mdash;</div>
           </div>
           <div class="funnel-row">
-            <div class="stage-name">AI Shortlisted <small>match score &ge; 70</small></div>
+            <div class="stage-name">AI Shortlisted <small>match score &ge; 80</small></div>
             <div class="funnel-bar-track">
-              <div class="funnel-bar-fill" style="width:64%;">318</div>
+              <div class="funnel-bar-fill" [style.width.%]="funnel().aiShortlisted.pct">{{ funnel().aiShortlisted.count }}</div>
             </div>
-            <div class="conv"><b>26%</b> of applicants</div>
+            <div class="conv"><b>{{ funnel().aiShortlisted.pct }}%</b> of applicants</div>
+          </div>
+          <div class="funnel-row">
+            <div class="stage-name">AI Rejected</div>
+            <div class="funnel-bar-track">
+              <div class="funnel-bar-fill" style="background:var(--danger);" [style.width.%]="funnel().aiRejected.pct">{{ funnel().aiRejected.count }}</div>
+            </div>
+            <div class="conv"><b>{{ funnel().aiRejected.pct }}%</b> of applicants</div>
           </div>
           <div class="funnel-row">
             <div class="stage-name">Interview pending</div>
             <div class="funnel-bar-track">
-              <div class="funnel-bar-fill" style="width:44%;">96</div>
+              <div class="funnel-bar-fill" [style.width.%]="funnel().interviewPending.pct">{{ funnel().interviewPending.count }}</div>
             </div>
-            <div class="conv"><b>30%</b> of shortlisted</div>
+            <div class="conv"><b>{{ funnel().interviewPending.pct }}%</b> of applicants</div>
+          </div>
+          <div class="funnel-row">
+            <div class="stage-name">Coding assessment pending</div>
+            <div class="funnel-bar-track">
+              <div class="funnel-bar-fill" [style.width.%]="funnel().codingPending.pct">{{ funnel().codingPending.count }}</div>
+            </div>
+            <div class="conv"><b>{{ funnel().codingPending.pct }}%</b> of applicants</div>
+          </div>
+          <div class="funnel-row">
+            <div class="stage-name">Coding assessment passed</div>
+            <div class="funnel-bar-track">
+              <div class="funnel-bar-fill" [style.width.%]="funnel().codingPassed.pct">{{ funnel().codingPassed.count }}</div>
+            </div>
+            <div class="conv"><b>{{ funnel().codingPassed.pct }}%</b> of applicants</div>
+          </div>
+          <div class="funnel-row">
+            <div class="stage-name">Coding assessment failed</div>
+            <div class="funnel-bar-track">
+              <div class="funnel-bar-fill" style="background:var(--danger);" [style.width.%]="funnel().codingFailed.pct">{{ funnel().codingFailed.count }}</div>
+            </div>
+            <div class="conv"><b>{{ funnel().codingFailed.pct }}%</b> of applicants</div>
           </div>
           <div class="funnel-row">
             <div class="stage-name">Technical round</div>
             <div class="funnel-bar-track">
-              <div class="funnel-bar-fill" style="width:34%;">61</div>
+              <div class="funnel-bar-fill" [style.width.%]="funnel().technical.pct">{{ funnel().technical.count }}</div>
             </div>
-            <div class="conv"><b>64%</b> of interviewed</div>
+            <div class="conv"><b>{{ funnel().technical.pct }}%</b> of applicants</div>
           </div>
           <div class="funnel-row">
             <div class="stage-name">HR round</div>
             <div class="funnel-bar-track">
-              <div class="funnel-bar-fill" style="width:26%;">40</div>
+              <div class="funnel-bar-fill" [style.width.%]="funnel().hr.pct">{{ funnel().hr.count }}</div>
             </div>
-            <div class="conv"><b>66%</b> of technical</div>
+            <div class="conv"><b>{{ funnel().hr.pct }}%</b> of applicants</div>
           </div>
           <div class="funnel-row">
             <div class="stage-name">Offer released</div>
             <div class="funnel-bar-track">
-              <div class="funnel-bar-fill" style="width:16%;">22</div>
+              <div class="funnel-bar-fill" [style.width.%]="funnel().offer.pct">{{ funnel().offer.count }}</div>
             </div>
-            <div class="conv"><b>55%</b> of HR round</div>
+            <div class="conv"><b>{{ funnel().offer.pct }}%</b> of applicants</div>
           </div>
         </div>
       </div>
@@ -147,19 +164,22 @@ import { Candidate } from '../../core/models/models';
             <div class="card-head" style="margin-bottom:12px;">
               <h2>Resume screening</h2>
             </div>
-            <div class="donut-row">
+            <div class="donut-row" *ngIf="resumeScreening().total > 0; else noResumeScreening">
               <svg width="92" height="92" viewBox="0 0 100 100">
                 <circle cx="50" cy="50" r="40" fill="none" stroke="#EFEBDF" stroke-width="14"/>
-                <circle cx="50" cy="50" r="40" fill="none" stroke="#1F7A6C" stroke-width="14" stroke-dasharray="105.6 251.3" transform="rotate(-90 50 50)"/>
-                <circle cx="50" cy="50" r="40" fill="none" stroke="#C79A2E" stroke-width="14" stroke-dasharray="77.9 251.3" stroke-dashoffset="-105.6" transform="rotate(-90 50 50)"/>
-                <circle cx="50" cy="50" r="40" fill="none" stroke="#B3412C" stroke-width="14" opacity="0.55" stroke-dasharray="67.9 251.3" stroke-dashoffset="-183.5" transform="rotate(-90 50 50)"/>
+                <circle cx="50" cy="50" r="40" fill="none" stroke="#1F7A6C" stroke-width="14" [attr.stroke-dasharray]="resumeScreening().shortlistedDash + ' 251.3'" transform="rotate(-90 50 50)"/>
+                <circle cx="50" cy="50" r="40" fill="none" stroke="#C79A2E" stroke-width="14" [attr.stroke-dasharray]="resumeScreening().manualReviewDash + ' 251.3'" [attr.stroke-dashoffset]="-resumeScreening().shortlistedDash" transform="rotate(-90 50 50)"/>
+                <circle cx="50" cy="50" r="40" fill="none" stroke="#B3412C" stroke-width="14" opacity="0.55" [attr.stroke-dasharray]="resumeScreening().rejectedDash + ' 251.3'" [attr.stroke-dashoffset]="-(resumeScreening().shortlistedDash + resumeScreening().manualReviewDash)" transform="rotate(-90 50 50)"/>
               </svg>
               <div class="legend">
-                <div class="legend-item"><span class="legend-dot" style="background:#1F7A6C;"></span>Recommended<b>42%</b></div>
-                <div class="legend-item"><span class="legend-dot" style="background:#C79A2E;"></span>Consider<b>31%</b></div>
-                <div class="legend-item"><span class="legend-dot" style="background:#B3412C; opacity:.55;"></span>Reject<b>27%</b></div>
+                <div class="legend-item"><span class="legend-dot" style="background:#1F7A6C;"></span>Shortlisted<b>{{ resumeScreening().shortlistedPct }}%</b></div>
+                <div class="legend-item"><span class="legend-dot" style="background:#C79A2E;"></span>Manual review<b>{{ resumeScreening().manualReviewPct }}%</b></div>
+                <div class="legend-item"><span class="legend-dot" style="background:#B3412C; opacity:.55;"></span>Rejected<b>{{ resumeScreening().rejectedPct }}%</b></div>
               </div>
             </div>
+            <ng-template #noResumeScreening>
+              <p class="muted" style="font-size:13px;">No resume screening decisions yet.</p>
+            </ng-template>
           </div>
           <div>
             <div class="card-head" style="margin-bottom:12px;">
@@ -340,6 +360,100 @@ export class RecruiterDashboardComponent {
     const points = this.chartData().points;
     const showEvery = points.length > 20 ? Math.round(points.length / 10) : 1;
     return points.filter((p, i) => i % showEvery === 0 || i === points.length - 1);
+  });
+
+  /** currentStage freezes at whatever stage an application was in when it hit a terminal
+   * status (REJECTED/WITHDRAWN never have a "default stage" of their own -- see
+   * ApplicationStatus.java's transitionStatus()) -- so currentStage doubles as "how far
+   * this application got," including for rejected ones, which is what every count below relies on. */
+  private reachedStage(app: ApplicationResponse, stage: ApplicationStage): boolean {
+    return compareToCurrentStage(app, stage) <= 0;
+  }
+
+  private rejectedAtStage(app: ApplicationResponse, stage: ApplicationStage): boolean {
+    return app.currentStatus === ApplicationStatus.REJECTED && app.currentStage === stage;
+  }
+
+  kpis = computed(() => {
+    const apps = this.state.companyApplications();
+    const totalApplications = apps.length;
+    const openPositions = this.state.jobs().filter(j => j.status === 'published').length;
+    const terminal = new Set([ApplicationStatus.REJECTED, ApplicationStatus.WITHDRAWN, ApplicationStatus.HIRED, ApplicationStatus.OFFER_DECLINED]);
+    const inPipeline = apps.filter(a => !terminal.has(a.currentStatus)).length;
+
+    const hired = apps.filter(a => a.currentStatus === ApplicationStatus.HIRED);
+    let avgTimeToHireDays: number | null = null;
+    if (hired.length > 0) {
+      const totalDays = hired.reduce((sum, a) => {
+        const days = (new Date(a.lastStatusChangedAt).getTime() - new Date(a.appliedAt).getTime()) / 86400000;
+        return sum + Math.max(0, days);
+      }, 0);
+      avgTimeToHireDays = Math.round(totalDays / hired.length);
+    }
+
+    return { totalApplications, openPositions, inPipeline, avgTimeToHireDays };
+  });
+
+  funnel = computed(() => {
+    const apps = this.state.companyApplications();
+    const total = apps.length || 1;
+    const row = (count: number) => ({ count, pct: Math.round((count / total) * 100) });
+
+    const aiShortlisted = apps.filter(a =>
+      a.currentStatus === ApplicationStatus.SHORTLISTED || this.reachedStage(a, ApplicationStage.AI_INTERVIEW)).length;
+    const aiRejected = apps.filter(a => this.rejectedAtStage(a, ApplicationStage.AI_RESUME_SCREENING)).length;
+    const interviewPending = apps.filter(a => a.currentStatus === ApplicationStatus.AI_INTERVIEW_PENDING).length;
+    const codingPending = apps.filter(a => a.currentStatus === ApplicationStatus.CODING_ASSESSMENT_PENDING).length;
+    const codingPassed = apps.filter(a => this.reachedStage(a, ApplicationStage.TECHNICAL_INTERVIEW)).length;
+    const codingFailed = apps.filter(a => this.rejectedAtStage(a, ApplicationStage.CODING_ASSESSMENT)).length;
+    const technical = apps.filter(a => this.reachedStage(a, ApplicationStage.TECHNICAL_INTERVIEW)).length;
+    const hr = apps.filter(a => this.reachedStage(a, ApplicationStage.HR_INTERVIEW)).length;
+    const offer = apps.filter(a => this.reachedStage(a, ApplicationStage.OFFER)).length;
+
+    return {
+      applicants: row(apps.length),
+      aiShortlisted: row(aiShortlisted),
+      aiRejected: row(aiRejected),
+      interviewPending: row(interviewPending),
+      codingPending: row(codingPending),
+      codingPassed: row(codingPassed),
+      codingFailed: row(codingFailed),
+      technical: row(technical),
+      hr: row(hr),
+      offer: row(offer),
+    };
+  });
+
+  /** Only counts applications that have actually finished (or been rejected out of) resume
+   * screening -- still-in-progress ones (APPLIED/RESUME_PARSING/AI_MATCHING) are excluded so
+   * the breakdown reflects decisions made, not the raw applicant pool. */
+  resumeScreening = computed(() => {
+    const apps = this.state.companyApplications();
+    const decided = apps.filter(a =>
+      a.currentStatus === ApplicationStatus.SHORTLISTED ||
+      a.currentStatus === ApplicationStatus.MANUAL_REVIEW ||
+      this.rejectedAtStage(a, ApplicationStage.AI_RESUME_SCREENING) ||
+      this.reachedStage(a, ApplicationStage.AI_INTERVIEW));
+    const total = decided.length;
+    if (total === 0) {
+      return { total: 0, shortlistedPct: 0, manualReviewPct: 0, rejectedPct: 0, shortlistedDash: 0, manualReviewDash: 0, rejectedDash: 0 };
+    }
+    const shortlisted = decided.filter(a => a.currentStatus === ApplicationStatus.SHORTLISTED || this.reachedStage(a, ApplicationStage.AI_INTERVIEW)).length;
+    const manualReview = decided.filter(a => a.currentStatus === ApplicationStatus.MANUAL_REVIEW).length;
+    const rejected = total - shortlisted - manualReview;
+
+    const circumference = 251.3;
+    const shortlistedPct = Math.round((shortlisted / total) * 100);
+    const manualReviewPct = Math.round((manualReview / total) * 100);
+    const rejectedPct = 100 - shortlistedPct - manualReviewPct;
+
+    return {
+      total,
+      shortlistedPct, manualReviewPct, rejectedPct,
+      shortlistedDash: Math.round((shortlisted / total) * circumference * 10) / 10,
+      manualReviewDash: Math.round((manualReview / total) * circumference * 10) / 10,
+      rejectedDash: Math.round((rejected / total) * circumference * 10) / 10,
+    };
   });
 
   constructor(public state: AppStateService, public router: Router) {}

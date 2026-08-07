@@ -81,8 +81,7 @@ ai-interview:
     default-duration-minutes: 20
     ttl-hours: 72
   shortlisting:
-    auto-shortlist-min-score: 70
-    auto-reject-max-score: 59
+    auto-shortlist-min-score: 80
   ai:
     provider: ${AI_INTERVIEW_PROVIDER:gemini} # gemini | groq | ollama
     gemini:

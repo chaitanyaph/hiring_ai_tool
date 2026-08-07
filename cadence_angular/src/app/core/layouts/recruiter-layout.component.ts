@@ -871,7 +871,7 @@ export class RecruiterLayoutComponent {
         difficulty: cDiff.value as Difficulty,
         durationMinutes: Number(cTime.value) || 60,
         questionCount: questionIds.length || 2,
-        passingScorePercent: 60,
+        passingScorePercent: 75,
         totalMarks: totalMarks || 100,
         antiCheatMonitoring: this.cAntiCheat(),
         plagiarismDetection: this.cPlagiarism(),
@@ -889,7 +889,7 @@ export class RecruiterLayoutComponent {
         difficulty: Difficulty.MEDIUM,
         durationMinutes: Number(mTime.value) || 20,
         questionCount: Number(mCount.value) || 30,
-        passingScorePercent: 60,
+        passingScorePercent: 75,
         totalMarks: 100,
       }).subscribe({
         next: () => this.state.closeModal(),

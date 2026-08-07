@@ -43,9 +43,6 @@ public class ShortlistingServiceImpl implements ShortlistingService {
     @Value("${ai-interview.shortlisting.auto-shortlist-min-score}")
     private int autoShortlistMinScore;
 
-    @Value("${ai-interview.shortlisting.auto-reject-max-score}")
-    private int autoRejectMaxScore;
-
     @Override
     @Transactional
     public void handleResumeAnalyzed(ResumeAnalyzedEvent event) {
@@ -164,14 +161,13 @@ public class ShortlistingServiceImpl implements ShortlistingService {
         }
     }
 
+    /**
+     * Strict binary rule: no manual-review middle band. MANUAL_REVIEW remains a
+     * valid ShortlistDecision value (still settable by a recruiter through other
+     * means) but is no longer produced by automatic scoring.
+     */
     private ShortlistDecision decisionFor(int score) {
-        if (score >= autoShortlistMinScore) {
-            return ShortlistDecision.SHORTLISTED;
-        }
-        if (score <= autoRejectMaxScore) {
-            return ShortlistDecision.REJECTED;
-        }
-        return ShortlistDecision.MANUAL_REVIEW;
+        return score >= autoShortlistMinScore ? ShortlistDecision.SHORTLISTED : ShortlistDecision.REJECTED;
     }
 
     private String reasonFor(ShortlistDecision decision, ResumeMatchDto match) {
@@ -182,7 +178,7 @@ public class ShortlistingServiceImpl implements ShortlistingService {
             }
             case REJECTED -> {
                 Optional<String> missingRequired = missingRequiredSkillNames(match);
-                yield missingRequired.map(s -> "Missing required skills: " + s).orElse("Overall match score is below the auto-reject threshold");
+                yield missingRequired.map(s -> "Missing required skills: " + s).orElse("Overall match score is below the auto-shortlist threshold");
             }
             case MANUAL_REVIEW -> "Borderline match score -- needs recruiter judgment";
         };

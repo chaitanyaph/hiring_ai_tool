@@ -48,4 +48,15 @@ public interface CandidateAssessmentRepository extends JpaRepository<CandidateAs
     Integer findMinScoreByAssessment(@Param("assessmentId") UUID assessmentId);
 
     List<CandidateAssessment> findAllByStatusAndExpiresAtBefore(CandidateAssessmentStatus status, LocalDateTime now);
+
+    @Query("""
+            SELECT ca FROM CandidateAssessment ca
+            WHERE ca.status = :status
+            AND ca.remindedAt IS NULL
+            AND ca.expiresAt IS NOT NULL
+            AND ca.expiresAt BETWEEN :now AND :reminderCutoff
+            """)
+    List<CandidateAssessment> findAllDueForReminder(@Param("status") CandidateAssessmentStatus status,
+                                                      @Param("now") LocalDateTime now,
+                                                      @Param("reminderCutoff") LocalDateTime reminderCutoff);
 }

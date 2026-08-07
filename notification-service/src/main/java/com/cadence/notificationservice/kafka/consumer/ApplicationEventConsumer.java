@@ -2,6 +2,7 @@ package com.cadence.notificationservice.kafka.consumer;
 
 import com.cadence.notificationservice.constants.KafkaTopics;
 import com.cadence.notificationservice.kafka.event.ApplicationCreatedEvent;
+import com.cadence.notificationservice.kafka.event.ApplicationStatusChangedEvent;
 import com.cadence.notificationservice.kafka.event.OfferAcceptedEvent;
 import com.cadence.notificationservice.kafka.event.OfferRejectedEvent;
 import com.cadence.notificationservice.service.NotificationOrchestrationService;
@@ -41,6 +42,15 @@ public class ApplicationEventConsumer {
             orchestrationService.handleOfferRejected(event);
         } catch (Exception e) {
             log.error("Failed to process OfferRejected for application {}: {}", event.getApplicationId(), e.getMessage(), e);
+        }
+    }
+
+    @KafkaListener(topics = KafkaTopics.APPLICATION_STATUS_CHANGED, groupId = "notification-service-group")
+    public void onApplicationStatusChanged(ApplicationStatusChangedEvent event) {
+        try {
+            orchestrationService.handleApplicationStatusChanged(event);
+        } catch (Exception e) {
+            log.error("Failed to process ApplicationStatusChanged for application {}: {}", event.getApplicationId(), e.getMessage(), e);
         }
     }
 }

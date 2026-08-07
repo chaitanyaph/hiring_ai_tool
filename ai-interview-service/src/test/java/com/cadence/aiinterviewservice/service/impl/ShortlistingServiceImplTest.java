@@ -43,8 +43,7 @@ class ShortlistingServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        ReflectionTestUtils.setField(shortlistingService, "autoShortlistMinScore", 70);
-        ReflectionTestUtils.setField(shortlistingService, "autoRejectMaxScore", 59);
+        ReflectionTestUtils.setField(shortlistingService, "autoShortlistMinScore", 80);
         applicationId = UUID.randomUUID();
         jobId = UUID.randomUUID();
         candidateId = UUID.randomUUID();
@@ -53,18 +52,18 @@ class ShortlistingServiceImplTest {
 
     @Test
     void handleResumeAnalyzed_shouldShortlist_whenScoreAtOrAboveThreshold() {
-        when(resumeParserServiceClient.getResumeMatch(applicationId)).thenReturn(new FeignApiResponse<>(true, "OK", match(75)));
+        when(resumeParserServiceClient.getResumeMatch(applicationId)).thenReturn(new FeignApiResponse<>(true, "OK", match(85)));
         when(candidateShortlistRepository.findByApplicationId(applicationId)).thenReturn(Optional.empty());
 
-        shortlistingService.handleResumeAnalyzed(event(75));
+        shortlistingService.handleResumeAnalyzed(event(85));
 
         verify(candidateShortlistRepository).save(argThat(s -> s.getDecision() == ShortlistDecision.SHORTLISTED
-                && s.getOverallMatchScore() == 75));
+                && s.getOverallMatchScore() == 85));
         verify(eventProducer).publishCandidateShortlisted(argThat(e -> e.getDecision() == ShortlistDecision.SHORTLISTED));
     }
 
     @Test
-    void handleResumeAnalyzed_shouldReject_whenScoreAtOrBelowRejectThreshold() {
+    void handleResumeAnalyzed_shouldReject_whenScoreBelowThreshold() {
         when(resumeParserServiceClient.getResumeMatch(applicationId)).thenReturn(new FeignApiResponse<>(true, "OK", match(40)));
         when(candidateShortlistRepository.findByApplicationId(applicationId)).thenReturn(Optional.empty());
 
@@ -74,13 +73,23 @@ class ShortlistingServiceImplTest {
     }
 
     @Test
-    void handleResumeAnalyzed_shouldParkAsManualReview_whenScoreInGrayZone() {
-        when(resumeParserServiceClient.getResumeMatch(applicationId)).thenReturn(new FeignApiResponse<>(true, "OK", match(65)));
+    void handleResumeAnalyzed_shouldReject_whenOnePointBelowThreshold() {
+        when(resumeParserServiceClient.getResumeMatch(applicationId)).thenReturn(new FeignApiResponse<>(true, "OK", match(79)));
         when(candidateShortlistRepository.findByApplicationId(applicationId)).thenReturn(Optional.empty());
 
-        shortlistingService.handleResumeAnalyzed(event(65));
+        shortlistingService.handleResumeAnalyzed(event(79));
 
-        verify(candidateShortlistRepository).save(argThat(s -> s.getDecision() == ShortlistDecision.MANUAL_REVIEW));
+        verify(candidateShortlistRepository).save(argThat(s -> s.getDecision() == ShortlistDecision.REJECTED));
+    }
+
+    @Test
+    void handleResumeAnalyzed_shouldShortlist_atExactThreshold() {
+        when(resumeParserServiceClient.getResumeMatch(applicationId)).thenReturn(new FeignApiResponse<>(true, "OK", match(80)));
+        when(candidateShortlistRepository.findByApplicationId(applicationId)).thenReturn(Optional.empty());
+
+        shortlistingService.handleResumeAnalyzed(event(80));
+
+        verify(candidateShortlistRepository).save(argThat(s -> s.getDecision() == ShortlistDecision.SHORTLISTED));
     }
 
     @Test

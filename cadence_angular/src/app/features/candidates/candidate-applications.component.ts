@@ -219,6 +219,22 @@ import { applicationStageLabel, applicationStatusBucket, compareToCurrentStage }
                 </div>
               </div>
             </div>
+
+            <!-- Hired -->
+            <div class="tl-item">
+              <div class="tl-node" [ngClass]="stepStatus(app, stages.HIRED)">
+                <svg *ngIf="stepStatus(app, stages.HIRED) === 'done'" viewBox="0 0 24 24" style="width:12px; height:12px; stroke:white; stroke-width:3; fill:none;"><path d="M5 13l4 4L19 7"/></svg>
+              </div>
+              <div class="tl-content">
+                <div class="tl-top">
+                  <span class="tl-title" [style.color]="stepStatus(app, stages.HIRED) === 'pending' ? 'var(--ink-faint)' : ''">Joined</span>
+                </div>
+                <div class="tl-card" [ngClass]="{ pending: stepStatus(app, stages.HIRED) === 'pending' }">
+                  <ng-container *ngIf="stepStatus(app, stages.HIRED) === 'pending'; else hired">Unlocks once you accept your offer.</ng-container>
+                  <ng-template #hired>Welcome aboard!</ng-template>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 

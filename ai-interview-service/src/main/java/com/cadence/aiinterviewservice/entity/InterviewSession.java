@@ -56,6 +56,9 @@ public class InterviewSession extends BaseAuditEntity {
     @Column(name = "invited_at")
     private LocalDateTime invitedAt;
 
+    @Column(name = "reminded_at")
+    private LocalDateTime remindedAt;
+
     @Column(name = "started_at")
     private LocalDateTime startedAt;
 

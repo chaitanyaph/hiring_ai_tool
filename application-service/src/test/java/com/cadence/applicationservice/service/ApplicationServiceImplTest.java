@@ -344,6 +344,42 @@ class ApplicationServiceImplTest {
     }
 
     @Test
+    void handleCodingAssessmentCompleted_shouldAdvance_whenPassedTrue() {
+        Application app = Application.builder().id(UUID.randomUUID()).candidateId(UUID.randomUUID())
+                .companyId(companyId).jobId(jobId).currentStatus(ApplicationStatus.CODING_ASSESSMENT_PENDING).build();
+        when(applicationRepository.findById(app.getId())).thenReturn(Optional.of(app));
+        when(applicationRepository.save(any(Application.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        applicationService.handleCodingAssessmentCompleted(app.getId(), 80, true);
+
+        assertThat(app.getCurrentStatus()).isEqualTo(ApplicationStatus.TECHNICAL_INTERVIEW);
+    }
+
+    @Test
+    void handleCodingAssessmentCompleted_shouldReject_whenPassedFalse() {
+        Application app = Application.builder().id(UUID.randomUUID()).candidateId(UUID.randomUUID())
+                .companyId(companyId).jobId(jobId).currentStatus(ApplicationStatus.CODING_ASSESSMENT_PENDING).build();
+        when(applicationRepository.findById(app.getId())).thenReturn(Optional.of(app));
+        when(applicationRepository.save(any(Application.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        applicationService.handleCodingAssessmentCompleted(app.getId(), 40, false);
+
+        assertThat(app.getCurrentStatus()).isEqualTo(ApplicationStatus.REJECTED);
+    }
+
+    @Test
+    void handleCodingAssessmentCompleted_shouldFailClosed_whenPassedIsNull() {
+        Application app = Application.builder().id(UUID.randomUUID()).candidateId(UUID.randomUUID())
+                .companyId(companyId).jobId(jobId).currentStatus(ApplicationStatus.CODING_ASSESSMENT_PENDING).build();
+        when(applicationRepository.findById(app.getId())).thenReturn(Optional.of(app));
+        when(applicationRepository.save(any(Application.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        applicationService.handleCodingAssessmentCompleted(app.getId(), 50, null);
+
+        assertThat(app.getCurrentStatus()).isEqualTo(ApplicationStatus.REJECTED);
+    }
+
+    @Test
     void handleBackgroundVerificationCompleted_shouldReject_whenFailed() {
         Application app = Application.builder().id(UUID.randomUUID()).candidateId(UUID.randomUUID())
                 .companyId(companyId).jobId(jobId).currentStatus(ApplicationStatus.BACKGROUND_VERIFICATION).build();

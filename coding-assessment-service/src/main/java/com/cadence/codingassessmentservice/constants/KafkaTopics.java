@@ -13,6 +13,9 @@ public final class KafkaTopics {
     // (real link + validity window) -- consumed by notification-service.
     public static final String CODING_ASSESSMENT_INVITED = "assessment.coding.invited";
 
+    // Published by the reminder sweep -- consumed by notification-service.
+    public static final String CODING_ASSESSMENT_REMINDER = "assessment.coding.reminder";
+
     // Forward-scaffolded (no consumer exists anywhere yet, same posture
     // every sibling service takes for events aimed at not-yet-built
     // Analytics/Notification services).

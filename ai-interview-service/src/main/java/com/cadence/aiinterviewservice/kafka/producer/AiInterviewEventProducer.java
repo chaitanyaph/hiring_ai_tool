@@ -55,6 +55,16 @@ public class AiInterviewEventProducer {
         publish(KafkaTopics.CANDIDATE_RECOMMENDED, event.getApplicationId().toString(), event);
     }
 
+    @Async
+    public void publishInterviewReminder(AiInterviewReminderEvent event) {
+        publish(KafkaTopics.INTERVIEW_REMINDER, event.getApplicationId().toString(), event);
+    }
+
+    @Async
+    public void publishInterviewExpired(AiInterviewExpiredEvent event) {
+        publish(KafkaTopics.INTERVIEW_EXPIRED, event.getApplicationId().toString(), event);
+    }
+
     private void publish(String topic, String key, Object payload) {
         CompletableFuture<SendResult<String, Object>> future = kafkaTemplate.send(topic, key, payload);
         future.whenComplete((result, ex) -> {
